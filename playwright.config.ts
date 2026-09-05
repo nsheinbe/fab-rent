@@ -8,6 +8,7 @@ export default defineConfig({
   timeout: 90_000,
   expect: { timeout: 15_000 },
   fullyParallel: false,
+  workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
@@ -22,10 +23,10 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { ...process.env, DEMO_NOW: process.env.DEMO_NOW ?? "2026-09-05T10:00:00", PORT: String(port) },
+    env: { ...process.env, DEMO_NOW: process.env.DEMO_NOW ?? "2026-09-05T10:00:00", PORT: String(port), NEXT_PUBLIC_DISABLE_MAPLIBRE: process.env.NEXT_PUBLIC_DISABLE_MAPLIBRE ?? "1" },
   },
   projects: [
-    { name: "mobile-390", use: { ...devices["iPhone 14"], viewport: { width: 390, height: 844 } } },
+    { name: "mobile-390", use: { ...devices["iPhone 14"], defaultBrowserType: "chromium", viewport: { width: 390, height: 844 } } },
     { name: "desktop-1280", use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 900 } } },
   ],
 });

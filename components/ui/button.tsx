@@ -46,8 +46,11 @@ export function Button({ variant = "primary", size = "lg", href, block, loading,
     </>
   );
   if (href && !disabled) {
+    // data-* / aria-* / id / title carry over to the anchor; button-only attributes are dropped
+    const { onClick, id, title, ...others } = rest;
+    const passthrough = Object.fromEntries(Object.entries(others).filter(([k]) => k.startsWith("data-") || k.startsWith("aria-")));
     return (
-      <Link href={href} className={classes} aria-disabled={disabled || loading || undefined}>
+      <Link href={href} className={classes} aria-disabled={disabled || loading || undefined} id={id} title={title} onClick={onClick as unknown as React.MouseEventHandler<HTMLAnchorElement>} {...passthrough}>
         {content}
       </Link>
     );

@@ -1,10 +1,5 @@
-import { BottomTabBar } from "@/components/domain/bottom-tab-bar";
+import { RenterShell } from "@/components/domain/renter-shell";
 
 export default function RenterLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="flex min-h-screen flex-col pb-[76px] lg:pb-0">
-      {children}
-      <BottomTabBar />
-    </div>
-  );
+  return <RenterShell>{children}</RenterShell>;
 }

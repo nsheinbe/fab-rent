@@ -59,6 +59,25 @@ export async function runAs<T>(actor: DbActor, fn: (trx: Trx) => Promise<T>): Pr
     });
 }
 
+/**
+ * Runs `fn` as the system inside the caller's transaction, then restores the caller's role.
+ * For side effects the acting user must never write directly (provider ledger, renter credits, payouts):
+ * they stay atomic with the user's own writes while RLS keeps guarding everything else.
+ */
+export async function asSystem<T>(trx: Trx, fn: (trx: Trx) => Promise<T>): Promise<T> {
+  const { rows } = await sql<{ role: string | null; claim: string | null }>`select current_setting('role', true) as role, current_setting('request.jwt.claim.role', true) as claim`.execute(trx);
+  const prevRole = rows[0]?.role && rows[0].role !== "none" ? rows[0].role : null;
+  const prevClaim = rows[0]?.claim ?? "";
+  await sql`set local role service_role`.execute(trx);
+  await sql`select set_config('request.jwt.claim.role', 'service_role', true)`.execute(trx);
+  try {
+    return await fn(trx);
+  } finally {
+    await (prevRole ? sql.raw(`set local role ${prevRole}`) : sql`reset role`).execute(trx);
+    await sql`select set_config('request.jwt.claim.role', ${prevClaim}, true)`.execute(trx);
+  }
+}
+
 /** System jobs (cron, webhooks) — bypasses RLS via service_role. */
 export async function runAsSystem<T>(fn: (trx: Trx) => Promise<T>): Promise<T> {
   return runAs({ userId: null, role: "service_role" }, fn);

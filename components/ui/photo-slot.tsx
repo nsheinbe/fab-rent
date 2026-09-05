@@ -74,7 +74,8 @@ export function PhotoSlot({ src, placeholder, alt, className, upload, label, bad
   return (
     <div
       className={cn(
-        "relative overflow-hidden bg-ivory-deep text-text-3 select-none",
+        "overflow-hidden bg-ivory-deep text-text-3 select-none",
+        !/\babsolute\b|\bfixed\b/.test(className ?? "") && "relative",
         interactive && "cursor-pointer",
         dragging && "ring-2 ring-cobalt ring-inset",
         outline === "error" && "outline outline-2 -outline-offset-2 outline-error",

@@ -89,6 +89,7 @@ export function formatDateRange(
 export function formatDateRangeCompact(start: Date, end: Date, tz = getMarketTz()): string {
   const s = toMarket(start, tz);
   const e = toMarket(end, tz);
+  if (s.getMonth() === e.getMonth() && s.getDate() === e.getDate()) return fmt(start, "d MMM", tz);
   if (s.getMonth() === e.getMonth()) return `${fmt(start, "d", tz)}–${fmt(end, "d MMM", tz)}`;
   return `${fmt(start, "d MMM", tz)} – ${fmt(end, "d MMM", tz)}`;
 }
@@ -126,4 +127,15 @@ export function initials(name: string): string {
 
 export function maskCard(brand: string, last4: string): string {
   return `${brand} •••• ${last4}`;
+}
+
+/**
+ * The everyday noun for a listing, for copy like "How was the kayak?" / "photograph the saw together".
+ * Drops qualifiers after "with", ",", "·", "–" or "(" and takes the last word of what's left.
+ */
+export function itemNoun(title: string, fallback = "item"): string {
+  const head = title.split(/\s+(?:with|for|and)\s+|,|·|–|\(/)[0] ?? title;
+  const words = head.trim().split(/\s+/).filter((w) => /^[a-z]/i.test(w));
+  const last = words[words.length - 1]?.replace(/[^a-z]/gi, "").toLowerCase();
+  return last && last.length > 2 ? last : fallback;
 }

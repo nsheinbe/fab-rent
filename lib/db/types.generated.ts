@@ -602,6 +602,18 @@ export interface Providers {
   years_on_platform: number | null;
 }
 
+export interface PublicProfiles {
+  avatar_path: string | null;
+  completed_count: number | null;
+  id: string | null;
+  is_business: boolean | null;
+  joined_at: Timestamp | null;
+  name: string | null;
+  neighbourhood: string | null;
+  rating_count: number | null;
+  rating_from_providers: Numeric | null;
+}
+
 export interface RenterCredits {
   amount_cents: number;
   booking_id: string | null;
@@ -707,6 +719,7 @@ export interface DB {
   profiles: Profiles;
   provider_members: ProviderMembers;
   providers: Providers;
+  public_profiles: PublicProfiles;
   renter_credits: RenterCredits;
   reports: Reports;
   reviews: Reviews;

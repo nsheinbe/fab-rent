@@ -13,6 +13,8 @@ export interface CalendarProps {
   range?: { start: Date; end: Date } | null;
   /** day → true when all units are booked */
   isBooked?: (d: Date) => boolean;
+  /** serialisable alternative to isBooked for server components: market-local yyyy-MM-dd keys */
+  bookedDays?: string[];
   isDisabled?: (d: Date) => boolean;
   onSelectDay?: (d: Date) => void;
   onMonthChange?: (m: Date) => void;
@@ -23,7 +25,7 @@ export interface CalendarProps {
 }
 
 /** Month grid with "Your dates / All units booked / Today" states (M05). Week starts Monday in Port Maren. */
-export function Calendar({ month, today, range, isBooked, isDisabled, onSelectDay, onMonthChange, legend = true, className, navigable, weekStartsOn = 1 }: CalendarProps) {
+export function Calendar({ month, today, range, isBooked, bookedDays, isDisabled, onSelectDay, onMonthChange, legend = true, className, navigable, weekStartsOn = 1 }: CalendarProps) {
   const [inner, setInner] = useState(month);
   const shown = onMonthChange ? month : inner;
   const setMonth = (m: Date) => (onMonthChange ? onMonthChange(m) : setInner(m));
@@ -58,7 +60,7 @@ export function Calendar({ month, today, range, isBooked, isDisabled, onSelectDa
           <span key={`lead-${i}`} />
         ))}
         {days.map((d) => {
-          const booked = isBooked?.(d) ?? false;
+          const booked = (isBooked?.(d) ?? false) || (bookedDays?.includes(format(d, "yyyy-MM-dd")) ?? false);
           const disabled = isDisabled?.(d) ?? false;
           const selected = !!inRange(d);
           const past = today ? d < startOfDayLocal(today) : false;
