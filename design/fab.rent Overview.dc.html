@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="./frames/image-slot.js"></script>
+<style>body{margin:0;background:#E9E5DC;font-family:'Plus Jakarta Sans',system-ui,sans-serif;color:#1E1E1C;-webkit-font-smoothing:antialiased}*{box-sizing:border-box}a{color:#1E42E8}a:hover{color:#1836C2}</style>
+</helmet>
+<div style="padding:48px 56px 80px;display:flex;flex-direction:column;gap:56px;max-width:1500px">
+
+  <div style="display:flex;flex-direction:column;gap:28px">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div style="font-weight:800;font-size:44px;letter-spacing:-0.035em;line-height:1">fab<span style="color:#1E42E8">.</span>rent</div>
+      <div style="display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px;border-radius:999px;background:#1E1E1C;color:#fff;font-size:12px;font-weight:600;letter-spacing:.04em">DEMO PRODUCT · all data fictional · market: Port Maren · currency: Maren dollar ($)</div>
+    </div>
+    <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:24px">
+      <div style="background:#F6F3EC;border:1px solid #E3DED3;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Design brief → decisions</div>
+        <div style="font-size:22px;font-weight:700;letter-spacing:-0.02em;line-height:1.25">Premium rental marketplace for equipment, tools and event supplies — renters, providers, admins, one design language.</div>
+        <div style="font-size:14px;line-height:1.55;color:#5F5C55;display:flex;flex-direction:column;gap:6px">
+          <div><b style="color:#1E1E1C">Assumed:</b> the truncated brief asked for a desktop admin console; admin is desktop-only, provider is desktop + mobile (handoffs happen on phones), renter is mobile-first with a fully responsive web app.</div>
+          <div><b style="color:#1E1E1C">Money model:</b> renters pay rental + required fees + tax + optional extras <i>now</i>; a separate refundable authorization hold is placed at handoff and released after return check-in. Held money is always visually separated from charged money.</div>
+          <div><b style="color:#1E1E1C">Auth:</b> browsing, filtering and building a booking are open; sign-in is requested only at payment, and the selected item, dates, fulfillment and extras are preserved through it.</div>
+          <div><b style="color:#1E1E1C">Photography:</b> every image is a drop slot — drag real product photos onto them and they persist.</div>
+        </div>
+      </div>
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:14px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Demo market</div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Port Maren</div>
+        <div style="font-size:13px;line-height:1.55;color:#5F5C55">Fictional coastal metro, 1.2M people. Neighbourhoods: Old Harbour, Vesper Hill, Northlands, Millbrook, Saltway, The Docks, Kestrel Park, Ridgeway.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
+          <div style="background:#F6F3EC;border-radius:10px;padding:10px 12px"><div style="color:#6E6A61;font-size:11px">Currency</div><div style="font-weight:600">Maren dollar · $ (MRD)</div></div>
+          <div style="background:#F6F3EC;border-radius:10px;padding:10px 12px"><div style="color:#6E6A61;font-size:11px">Sales tax</div><div style="font-weight:600">7.5% on rentals + fees</div></div>
+          <div style="background:#F6F3EC;border-radius:10px;padding:10px 12px"><div style="color:#6E6A61;font-size:11px">Service fee</div><div style="font-weight:600">10% renter · 12% provider</div></div>
+          <div style="background:#F6F3EC;border-radius:10px;padding:10px 12px"><div style="color:#6E6A61;font-size:11px">Today</div><div style="font-weight:600">Sat 5 Sep 2026</div></div>
+        </div>
+        <div style="font-size:13px;line-height:1.55;color:#5F5C55"><b style="color:#1E1E1C">Providers:</b> Northlands Tool &amp; Hire · Millbrook Event Co. · Vesper Camera Collective · Docks Equipment Depot · Saltway Marine &amp; Outdoor · Tomas Reinholt (individual)</div>
+      </div>
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Screens</div>
+        <a href="./fab.rent%20Renter%20Mobile.dc.html" style="text-decoration:none;color:#1E1E1C;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid #E3DED3;border-radius:12px;background:#F6F3EC"><div><div style="font-weight:700;font-size:14px">Renter · iOS &amp; Android</div><div style="font-size:12px;color:#6E6A61">Discovery → booking → sign-in → confirmation → manage</div></div><div style="font-size:12px;font-weight:600;color:#1E42E8">13 screens →</div></a>
+        <a href="./fab.rent%20Renter%20Web.dc.html" style="text-decoration:none;color:#1E1E1C;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid #E3DED3;border-radius:12px;background:#F6F3EC"><div><div style="font-weight:700;font-size:14px">Renter · responsive web</div><div style="font-size:12px;color:#6E6A61">Home, results + map, listing, checkout, tablet</div></div><div style="font-size:12px;font-weight:600;color:#1E42E8">5 screens →</div></a>
+        <a href="./fab.rent%20Provider.dc.html" style="text-decoration:none;color:#1E1E1C;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid #E3DED3;border-radius:12px;background:#F6F3EC"><div><div style="font-weight:700;font-size:14px">Provider · dashboard &amp; ops</div><div style="font-size:12px;color:#6E6A61">Dashboard, bookings, listing editor, calendar, handoff, earnings</div></div><div style="font-size:12px;font-weight:600;color:#1E42E8">7 screens →</div></a>
+        <a href="./fab.rent%20Admin.dc.html" style="text-decoration:none;color:#1E1E1C;display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border:1px solid #E3DED3;border-radius:12px;background:#F6F3EC"><div><div style="font-weight:700;font-size:14px">Admin · desktop console</div><div style="font-size:12px;color:#6E6A61">Overview, users, listing review, dispute, settings</div></div><div style="font-size:12px;font-weight:600;color:#1E42E8">5 screens →</div></a>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:14px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">01</div><div style="font-size:20px;font-weight:700;letter-spacing:-0.01em">Identity</div></div>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.2fr);gap:24px">
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;overflow:hidden;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:150px 150px">
+        <div style="background:#F6F3EC;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;letter-spacing:-0.035em;color:#1E1E1C">fab<span style="color:#1E42E8">.</span>rent</div>
+        <div style="background:#1E1E1C;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;letter-spacing:-0.035em;color:#fff">fab<span style="color:#5B7BFF">.</span>rent</div>
+        <div style="background:#1E42E8;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:34px;letter-spacing:-0.035em;color:#fff">fab<span style="color:#BFD0FF">.</span>rent</div>
+        <div style="background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px"><div style="width:44px;height:44px;border-radius:12px;background:#1E42E8;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:22px;letter-spacing:-0.05em">f<span style="color:#BFD0FF">.</span></div><div style="font-size:11px;color:#6E6A61">App icon · favicon</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;align-content:start">
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#F6F3EC;border:1px solid #E3DED3"></div><div style="font-size:12px;font-weight:600">Ivory</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#F6F3EC</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#EFEBE2"></div><div style="font-size:12px;font-weight:600">Ivory deep</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#EFEBE2</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#E3DED3"></div><div style="font-size:12px;font-weight:600">Border</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#E3DED3</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#1E1E1C"></div><div style="font-size:12px;font-weight:600">Charcoal</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#1E1E1C</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#5F5C55"></div><div style="font-size:12px;font-weight:600">Text 2</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#5F5C55</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#6E6A61"></div><div style="font-size:12px;font-weight:600">Text 3</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#6E6A61</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#1E42E8"></div><div style="font-size:12px;font-weight:600">Cobalt</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#1E42E8</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;background:#E9EDFD;border:1px solid #C9D3FA"></div><div style="font-size:12px;font-weight:600">Cobalt tint</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">#E9EDFD</div></div>
+        <div style="display:flex;flex-direction:column;gap:6px"><div style="height:52px;border-radius:10px;display:grid;grid-template-columns:1fr 1fr 1fr;overflow:hidden"><div style="background:#1B7F4C"></div><div style="background:#B4650A"></div><div style="background:#B3261E"></div></div><div style="font-size:12px;font-weight:600">Status</div><div style="font-size:11px;color:#6E6A61;font-family:'DM Mono',monospace">ok · warn · error</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px 24px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><div style="font-size:32px;font-weight:800;letter-spacing:-0.03em;line-height:1.05">Display 32 / 800</div><div style="font-size:11px;color:#6E6A61">Plus Jakarta Sans</div></div>
+        <div style="font-size:24px;font-weight:700;letter-spacing:-0.02em;line-height:1.2">Title 24 / 700 — listing names, page titles</div>
+        <div style="font-size:18px;font-weight:700;letter-spacing:-0.01em">Heading 18 / 700 — section heads</div>
+        <div style="font-size:15px;font-weight:500;line-height:1.5;color:#1E1E1C">Body 15 / 500 mobile · 14 / 500 desktop — descriptions, rows, forms. Text 2 for secondary lines.</div>
+        <div style="font-size:12px;color:#6E6A61;font-weight:500">Meta 12 / 500 — distance, timestamps, helper text</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Label 11 / 600 / caps — group labels</div>
+        <div style="display:flex;gap:10px;align-items:center"><div style="font-family:'DM Mono',monospace;font-size:14px;font-weight:500;background:#F6F3EC;border:1px solid #E3DED3;border-radius:8px;padding:6px 10px;letter-spacing:.04em">FR-7KQ2-M9</div><div style="font-size:12px;color:#6E6A61">DM Mono — booking references, serials, amounts in tables</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:baseline;gap:14px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">02</div><div style="font-size:20px;font-weight:700;letter-spacing:-0.01em">Core components</div><div style="font-size:13px;color:#6E6A61">Availability, dates, location and price are always the first four facts a renter reads.</div></div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:24px;align-items:start">
+
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Buttons &amp; inputs</div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="height:44px;padding:0 18px;border-radius:10px;background:#1E42E8;color:#fff;font-weight:600;font-size:15px;display:flex;align-items:center">Reserve · $271.33</div>
+          <div style="height:44px;padding:0 18px;border-radius:10px;background:#fff;border:1px solid #CEC7B9;color:#1E1E1C;font-weight:600;font-size:15px;display:flex;align-items:center">Message provider</div>
+          <div style="height:44px;padding:0 18px;border-radius:10px;background:#EFEBE2;color:#1E1E1C;font-weight:600;font-size:15px;display:flex;align-items:center">Save</div>
+          <div style="height:44px;padding:0 18px;border-radius:10px;background:#FBE7E5;color:#A3261E;font-weight:600;font-size:15px;display:flex;align-items:center">Cancel booking</div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="height:36px;padding:0 14px;border-radius:8px;background:#1E42E8;color:#fff;font-weight:600;font-size:13px;display:flex;align-items:center">Approve</div>
+          <div style="height:36px;padding:0 14px;border-radius:8px;background:#fff;border:1px solid #CEC7B9;color:#1E1E1C;font-weight:600;font-size:13px;display:flex;align-items:center">Decline</div>
+          <div style="height:36px;padding:0 14px;border-radius:8px;color:#1E42E8;font-weight:600;font-size:13px;display:flex;align-items:center">Text action</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div style="font-size:12px;font-weight:600;color:#5F5C55">Delivery address</div>
+          <div style="height:44px;border:1px solid #CEC7B9;border-radius:10px;background:#fff;display:flex;align-items:center;padding:0 14px;font-size:15px">18 Corrin St, Vesper Hill</div>
+          <div style="height:44px;border:2px solid #1E42E8;border-radius:10px;background:#fff;display:flex;align-items:center;padding:0 13px;font-size:15px;color:#8E8A80">Focused · placeholder text</div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Booking status pills</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#FBEFD8;color:#8A4B06"><span style="width:6px;height:6px;border-radius:50%;background:#B4650A"></span>Requested</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#E9EDFD;color:#1836C2"><span style="width:6px;height:6px;border-radius:50%;background:#1E42E8"></span>Confirmed</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#E9EDFD;color:#1836C2"><span style="width:6px;height:6px;border-radius:50%;background:#1E42E8"></span>Ready for pickup</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#E9EDFD;color:#1836C2"><span style="width:6px;height:6px;border-radius:50%;background:#1E42E8"></span>Out for delivery</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#E2F3E8;color:#166B40"><span style="width:6px;height:6px;border-radius:50%;background:#1B7F4C"></span>Active</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#FBEFD8;color:#8A4B06"><span style="width:6px;height:6px;border-radius:50%;background:#B4650A"></span>Return due</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#FBE7E5;color:#A3261E"><span style="width:6px;height:6px;border-radius:50%;background:#B3261E"></span>Overdue</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#EFEBE2;color:#5F5C55"><span style="width:6px;height:6px;border-radius:50%;background:#8E8A80"></span>Inspecting</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#EFEBE2;color:#5F5C55"><span style="width:6px;height:6px;border-radius:50%;background:#8E8A80"></span>Completed</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#EFEBE2;color:#5F5C55;text-decoration:line-through">Cancelled</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#FBE7E5;color:#A3261E"><span style="width:6px;height:6px;border-radius:50%;background:#B3261E"></span>Disputed</div>
+        </div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61;margin-top:4px">Availability &amp; fulfillment</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#E2F3E8;color:#166B40"><span style="width:6px;height:6px;border-radius:50%;background:#1B7F4C"></span>Available 11–13 Sep</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#FBEFD8;color:#8A4B06">Only 1 left</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#EFEBE2;color:#5F5C55">Unavailable · next 14 Sep</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#fff;border:1px solid #E3DED3;color:#1E1E1C">Pickup · free</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#fff;border:1px solid #E3DED3;color:#1E1E1C">Delivery · from $25</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;background:#1E1E1C;color:#fff">Instant book</div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Listing card · the four facts</div>
+        <div style="display:flex;gap:14px;padding:12px;border:1px solid #E3DED3;border-radius:14px;background:#fff">
+          <div style="width:112px;height:112px;flex:none;border-radius:10px;overflow:hidden"><image-slot id="ov-card-saw" shape="rounded" radius="10" placeholder="Table saw photo"></image-slot></div>
+          <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+            <div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="font-size:15px;font-weight:700;line-height:1.3;letter-spacing:-0.01em">DeWalt DWE7491 10-in Jobsite Table Saw</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1E1E1C" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7.7a4.5 4.5 0 0 1 7.5 2.8c0 5.4-7.5 10-7.5 10Z"></path></svg></div>
+            <div style="font-size:12px;color:#6E6A61">Northlands Tool &amp; Hire · ★ 4.9 (87) · 2.1 km</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:2px"><div style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:#E2F3E8;color:#166B40"><span style="width:5px;height:5px;border-radius:50%;background:#1B7F4C"></span>Available</div><div style="display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:600;background:#fff;border:1px solid #E3DED3">Delivery $25</div></div>
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:auto"><div><span style="font-size:16px;font-weight:700">$58</span><span style="font-size:12px;color:#6E6A61">/day</span></div><div style="font-size:12px;color:#5F5C55">$174 · 3 days</div></div>
+          </div>
+        </div>
+        <div style="font-size:12px;color:#6E6A61;line-height:1.5">Title → provider/rating/distance → availability + fulfillment → per-day and total for the searched dates. Distance and total only appear once location and dates are known.</div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Price breakdown · charged vs held</div>
+        <div style="border:1px solid #E3DED3;border-radius:14px;overflow:hidden">
+          <div style="padding:14px 16px;display:flex;flex-direction:column;gap:9px;font-size:14px">
+            <div style="display:flex;justify-content:space-between"><span style="color:#5F5C55">$58 × 3 days</span><span style="font-family:'DM Mono',monospace">$174.00</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#5F5C55">Delivery &amp; collection · Vesper Hill</span><span style="font-family:'DM Mono',monospace">$25.00</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#5F5C55">Extras · 60T blade, damage waiver</span><span style="font-family:'DM Mono',monospace">$36.00</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#5F5C55">Service fee (10%)</span><span style="font-family:'DM Mono',monospace">$17.40</span></div>
+            <div style="display:flex;justify-content:space-between"><span style="color:#5F5C55">Sales tax 7.5%</span><span style="font-family:'DM Mono',monospace">$18.93</span></div>
+          </div>
+          <div style="padding:14px 16px;background:#1E1E1C;color:#fff;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#B9B5AC">Charged now</div><div style="font-size:12px;color:#B9B5AC">Visa •••• 4421</div></div><div style="font-size:22px;font-weight:700;font-family:'DM Mono',monospace">$271.33</div></div>
+          <div style="padding:12px 16px;background:#F6F3EC;border-top:1px dashed #CEC7B9;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Held, not charged</div><div style="font-size:12px;color:#6E6A61">Authorization at handoff · released ≤3 business days after return · $300 without the waiver</div></div><div style="font-size:16px;font-weight:700;font-family:'DM Mono',monospace;color:#5F5C55">$100.00</div></div>
+        </div>
+      </div>
+
+      <div style="background:#fff;border:1px solid #E3DED3;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:16px">
+        <div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61">Date · location · fulfillment summary</div>
+        <div style="display:flex;border:1px solid #E3DED3;border-radius:12px;overflow:hidden;background:#fff">
+          <div style="flex:1;padding:10px 14px;border-right:1px solid #E3DED3"><div style="font-size:11px;color:#6E6A61;font-weight:600">FROM</div><div style="font-size:14px;font-weight:600">Fri 11 Sep · 09:00</div></div>
+          <div style="flex:1;padding:10px 14px;border-right:1px solid #E3DED3"><div style="font-size:11px;color:#6E6A61;font-weight:600">UNTIL</div><div style="font-size:14px;font-weight:600">Sun 13 Sep · 17:00</div></div>
+          <div style="flex:none;padding:10px 14px;background:#F6F3EC"><div style="font-size:11px;color:#6E6A61;font-weight:600">DURATION</div><div style="font-size:14px;font-weight:600">3 days</div></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="border:1px solid #E3DED3;border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Pickup</span><span style="color:#166B40">Free</span></div><div style="font-size:12px;color:#6E6A61">42 Foundry Rd, Northlands · 2.1 km · Mon–Sat 7–18</div></div>
+          <div style="border:2px solid #1E42E8;border-radius:12px;padding:11px 13px;display:flex;flex-direction:column;gap:2px;background:#F8F9FF"><div style="display:flex;justify-content:space-between;font-size:14px;font-weight:700"><span>Delivery</span><span>$25</span></div><div style="font-size:12px;color:#6E6A61">To 18 Corrin St, Vesper Hill · 2-hour window</div></div>
+        </div>
+        <div style="display:flex;justify-content:space-around;align-items:center;height:64px;border-top:1px solid #E3DED3;padding-top:8px">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#1E42E8;font-size:10px;font-weight:600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="m15 9-2 6-4 2 2-6z"></path></svg>Explore</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#6E6A61;font-size:10px;font-weight:600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 20.5s-7.5-4.6-7.5-10A4.5 4.5 0 0 1 12 7.7a4.5 4.5 0 0 1 7.5 2.8c0 5.4-7.5 10-7.5 10Z"></path></svg>Saved</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#6E6A61;font-size:10px;font-weight:600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 7.5 12 3l9 4.5v9L12 21l-9-4.5z"></path><path d="M3 7.5 12 12l9-4.5M12 12v9"></path></svg>Rentals</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#6E6A61;font-size:10px;font-weight:600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 5h16v11H9l-5 4z"></path></svg>Inbox</div>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:3px;color:#6E6A61;font-size:10px;font-weight:600"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21a8 8 0 0 1 16 0"></path></svg>Profile</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div style="background:#F6F3EC;border:1px solid #E3DED3;border-radius:16px;padding:20px 24px;display:flex;gap:32px;flex-wrap:wrap;font-size:13px;line-height:1.55;color:#5F5C55">
+    <div style="flex:1;min-width:260px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61;margin-bottom:6px">Not designed yet</div>Saved lists, profile &amp; settings, provider onboarding/KYC, notifications centre, Android-specific chrome (screens are platform-neutral; the iOS frame is presentational).</div>
+    <div style="flex:1;min-width:260px"><div style="font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#6E6A61;margin-bottom:6px">Suggested next</div>Drop real product photography into the slots · pick a screen to turn into a clickable prototype · dark-mode pass for the provider app used outdoors.</div>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>
