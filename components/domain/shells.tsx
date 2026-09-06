@@ -97,7 +97,7 @@ export function Shell({ nav, header, children, footer, variant, collapsed: force
         <header className="sticky top-0 z-30 flex h-16 flex-none items-center justify-between gap-4 border-b border-border bg-paper px-4 md:px-6 lg:px-7">{header}</header>
         {/* below md the side nav is hidden: sections become a scrollable chip row */}
         <MobileSectionNav nav={nav} dark={dark} />
-        <main className={cn("flex-1 min-w-0", contentClassName)}>{children}</main>
+        <main id="main" tabIndex={-1} className={cn("flex-1 min-w-0 outline-none", contentClassName)}>{children}</main>
       </div>
     </div>
   );

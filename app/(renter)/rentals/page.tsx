@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { now } from "@/lib/time";
 import { listRenterBookings, type BookingSummary } from "@/lib/queries/bookings";
 import { derivedBadge, ACTIVE_STATUSES, PAST_STATUSES, UPCOMING_STATUSES } from "@/lib/booking-state";
@@ -22,7 +22,7 @@ type Tab = "all" | "upcoming" | "active" | "past";
 const PREP_HOURS = 2;
 
 export default async function RentalsPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
-  const [sp, actor] = await Promise.all([searchParams, requireUser()]);
+  const [sp, actor] = await Promise.all([searchParams, requireUserPage()]);
   const tab: Tab = (["all", "upcoming", "active", "past"] as Tab[]).includes(sp.tab as Tab) ? (sp.tab as Tab) : "all";
   const bookings = await withActor((trx) => listRenterBookings(trx, actor.userId!));
   const nowAt = now();

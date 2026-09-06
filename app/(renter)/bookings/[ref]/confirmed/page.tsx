@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { getLiveConfig } from "@/lib/settings/live";
 import { getBookingByRef } from "@/lib/queries/bookings";
 import { formatDateTime, formatMoney, itemNoun } from "@/lib/format";
@@ -16,7 +16,7 @@ export const metadata: Metadata = { title: "You're booked" };
 export const dynamic = "force-dynamic";
 
 export default async function ConfirmedPage({ params }: { params: Promise<{ ref: string }> }) {
-  const [{ ref }, actor, config] = await Promise.all([params, requireUser(), getLiveConfig()]);
+  const [{ ref }, actor, config] = await Promise.all([params, requireUserPage(), getLiveConfig()]);
   const b = await withActor((trx) => getBookingByRef(trx, ref));
   if (!b) notFound();
   const first = actor.profile?.name.split(" ")[0] ?? "there";

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { getConversation } from "@/lib/queries/renter";
 import { bookingStatus, isBookingStatus } from "@/lib/booking-state";
 import { RenterHeader } from "@/components/domain/renter-header";
@@ -15,7 +15,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function ThreadPage({ params }: { params: Promise<{ id: string }> }) {
-  const [{ id }, actor] = await Promise.all([params, requireUser()]);
+  const [{ id }, actor] = await Promise.all([params, requireUserPage()]);
   const c = await withActor((trx) => getConversation(trx, id));
   if (!c) notFound();
   const mine = c.renter_id === actor.userId;

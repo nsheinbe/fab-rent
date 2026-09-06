@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { requireUser, withActor, runAsSystem } from "@/lib/auth";
+import { requireUserPage, withActor, runAsSystem } from "@/lib/auth";
 import { getLiveConfig } from "@/lib/settings/live";
 import { getBookingByRef } from "@/lib/queries/bookings";
 import { BLOCKING_STATUSES } from "@/lib/booking-state";
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Extend your rental" };
 export const dynamic = "force-dynamic";
 
 export default async function ExtendPage({ params }: { params: Promise<{ ref: string }> }) {
-  const [{ ref }, actor, config] = await Promise.all([params, requireUser(), getLiveConfig()]);
+  const [{ ref }, actor, config] = await Promise.all([params, requireUserPage(), getLiveConfig()]);
   const b = await withActor((trx) => getBookingByRef(trx, ref));
   if (!b || b.renter.id !== actor.userId) notFound();
   if (!["active", "return_due", "confirmed", "ready_for_pickup", "out_for_delivery"].includes(b.status)) redirect(`/rentals/${ref}`);

@@ -10,6 +10,7 @@ import { BackLink } from "@/components/domain/renter-header";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { markConversationRead, sendMessage } from "@/app/(renter)/actions";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 export interface ThreadMessage {
   id: string;
@@ -35,7 +36,7 @@ interface Props {
 
 const QUICK = ["Running 10 min late", "Where do I leave it?"];
 
-/** M13 thread: booking context pinned, system events inline, quick replies, photo messages. Refreshes every 15 s until realtime lands (Phase 4). */
+/** M13 thread: booking context pinned, system events inline, quick replies, photo messages. Live via Supabase Realtime (inserts on `messages`) when configured, with a 15 s poll in demo mode. */
 export function Thread({ conversationId, side, me, provider, renterName, booking, listing, messages }: Props) {
   const router = useRouter();
   const toast = useToast();
@@ -48,8 +49,17 @@ export function Thread({ conversationId, side, me, provider, renterName, booking
 
   useEffect(() => {
     void markConversationRead(conversationId, side);
-    const t = setInterval(() => router.refresh(), 15_000);
-    return () => clearInterval(t);
+    const sb = getSupabaseBrowserClient();
+    // `messages` is in the supabase_realtime publication; RLS scopes the stream to this user's conversations
+    const channel = sb
+      ?.channel(`thread:${conversationId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` }, () => router.refresh())
+      .subscribe();
+    const t = setInterval(() => router.refresh(), channel ? 60_000 : 15_000);
+    return () => {
+      clearInterval(t);
+      if (sb && channel) void sb.removeChannel(channel);
+    };
   }, [conversationId, side, router]);
   useEffect(() => {
     bottom.current?.scrollIntoView({ block: "end" });

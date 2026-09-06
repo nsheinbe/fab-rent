@@ -19,6 +19,19 @@ export function SkeletonCard({ rows = 3, className }: { rows?: number; className
   );
 }
 
+/** Route-level loading skeleton (loading.tsx): a title bar and a few cards in the page column. */
+export function PageSkeleton({ width = 760, cards = 3, className }: { width?: number; cards?: number; className?: string }) {
+  return (
+    <div className={cn("mx-auto flex w-full flex-col gap-3 px-5 pt-[max(14px,env(safe-area-inset-top))] lg:px-6 lg:pt-8", className)} style={{ maxWidth: width }} aria-busy="true" aria-label="Loading">
+      <Skeleton className="h-7 w-40" />
+      <Skeleton className="h-3 w-64" />
+      {Array.from({ length: cards }).map((_, i) => (
+        <SkeletonCard key={i} rows={i === cards - 1 ? 2 : 3} className="mt-1" />
+      ))}
+    </div>
+  );
+}
+
 /** Empty state in the design language: ivory-deep well, icon, one line, optional action. */
 export function EmptyState({ icon = "box", title, body, action, className, compact }: { icon?: IconName; title: ReactNode; body?: ReactNode; action?: ReactNode; className?: string; compact?: boolean }) {
   return (

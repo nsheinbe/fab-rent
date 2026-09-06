@@ -203,18 +203,43 @@ export async function checkout(input: z.input<typeof checkoutSchema>): Promise<A
   return result;
 }
 
-const cardSchema = z.object({ brand: z.enum(["Visa", "Mastercard", "Amex"]), last4: z.string().regex(/^\d{4}$/), exp_month: z.coerce.number().int().min(1).max(12), exp_year: z.coerce.number().int().min(2026).max(2040), makeDefault: z.boolean().optional() });
+const cardSchema = z.object({ brand: z.enum(["Visa", "Mastercard", "Amex"]), last4: z.string().regex(/^\d{4}$/), exp_month: z.coerce.number().int().min(1).max(12), exp_year: z.coerce.number().int().min(2026).max(2040), makeDefault: z.boolean().optional(), provider_ref: z.string().max(80).optional() });
 
-/** Adds a card. Only masked data ever reaches the server: brand, last4 and expiry. */
+/** Adds a card. Only masked data ever reaches the server: brand, last4 and expiry (plus the Stripe payment method id in Stripe mode). */
 export async function addPaymentMethod(input: z.input<typeof cardSchema>): Promise<ActionResult<{ id: string }>> {
   const parsed = cardSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: "Check the card details" };
   const actor = await requireUser();
+  let card = { brand: parsed.data.brand, last4: parsed.data.last4, exp_month: parsed.data.exp_month, exp_year: parsed.data.exp_year };
+  if (process.env.PAYMENTS_PROVIDER === "stripe") {
+    // never trust masked data from the browser: read it back from Stripe and make sure the method is attached to this renter's customer
+    if (!parsed.data.provider_ref?.startsWith("pm_")) return { ok: false, error: "Add the card through the secure card form" };
+    const verified = await verifyStripeMethod(actor.userId!, parsed.data.provider_ref);
+    if (!verified.ok) return { ok: false, error: verified.error };
+    card = verified.card;
+  }
   return withActor(async (trx) => {
     if (parsed.data.makeDefault) await trx.updateTable("payment_methods").set({ is_default: false }).where("profile_id", "=", actor.userId!).execute();
-    const row = await trx.insertInto("payment_methods").values({ profile_id: actor.userId!, kind: "card", brand: parsed.data.brand, last4: parsed.data.last4, exp_month: parsed.data.exp_month, exp_year: parsed.data.exp_year, is_default: parsed.data.makeDefault ?? false, provider_ref: `mock_pm_${crypto.randomUUID().slice(0, 8)}` }).returning("id").executeTakeFirstOrThrow();
+    const row = await trx.insertInto("payment_methods").values({ profile_id: actor.userId!, kind: "card", ...card, is_default: parsed.data.makeDefault ?? false, provider_ref: parsed.data.provider_ref ?? `mock_pm_${crypto.randomUUID().slice(0, 8)}` }).returning("id").executeTakeFirstOrThrow();
     return { ok: true, data: { id: row.id } };
   });
+}
+
+const STRIPE_BRANDS: Record<string, "Visa" | "Mastercard" | "Amex"> = { visa: "Visa", mastercard: "Mastercard", amex: "Amex" };
+async function verifyStripeMethod(userId: string, pmId: string): Promise<{ ok: true; card: { brand: "Visa" | "Mastercard" | "Amex"; last4: string; exp_month: number; exp_year: number } } | { ok: false; error: string }> {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) return { ok: false, error: "Stripe is not configured" };
+  const { default: Stripe } = await import("stripe");
+  const stripe = new Stripe(key);
+  const [pm, profile] = await Promise.all([
+    stripe.paymentMethods.retrieve(pmId).catch(() => null),
+    withActor((trx) => trx.selectFrom("profiles").select("stripe_customer_id").where("id", "=", userId).executeTakeFirst()),
+  ]);
+  const customer = pm && (typeof pm.customer === "string" ? pm.customer : pm.customer?.id);
+  if (!pm || !pm.card || !customer || customer !== profile?.stripe_customer_id) return { ok: false, error: "That card isn't attached to your account" };
+  const brand = STRIPE_BRANDS[pm.card.brand];
+  if (!brand) return { ok: false, error: "fab.rent accepts Visa, Mastercard and American Express" };
+  return { ok: true, card: { brand, last4: pm.card.last4, exp_month: pm.card.exp_month, exp_year: pm.card.exp_year } };
 }
 
 /** Mocked photo-ID check: takes ~2 s then flips id_verified. Only ever triggered from checkout. */

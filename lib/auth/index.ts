@@ -1,5 +1,6 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
 import { cache } from "react";
 import { getDb, runAs, runAsSystem, type DbActor, type Trx } from "@/lib/db";
 import { ANON_COOKIE, SESSION_COOKIE, decodeSession } from "./session";
@@ -102,6 +103,16 @@ export class AuthError extends Error {
 export async function requireUser(): Promise<Actor> {
   const actor = await getActor();
   if (!actor.userId) throw new AuthError("unauthenticated");
+  return actor;
+}
+
+/** Page variant of requireUser(): anonymous visitors go to /auth and come back to this page afterwards (proxy.ts sets x-pathname). */
+export async function requireUserPage(): Promise<Actor> {
+  const actor = await getActor();
+  if (!actor.userId) {
+    const h = await headers();
+    redirect(`/auth?next=${encodeURIComponent(h.get("x-pathname") ?? "/")}`);
+  }
   return actor;
 }
 

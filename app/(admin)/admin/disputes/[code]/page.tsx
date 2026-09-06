@@ -14,7 +14,7 @@ import { Pill } from "@/components/ui/pill";
 import { Icon } from "@/components/ui/icons";
 import { Timeline, type TimelineStep } from "@/components/ui/timeline";
 import { KeyValueList } from "@/components/ui/side-panel";
-import { DisputeActions, DecisionBox, NoteBox } from "./decision";
+import { DisputeActions, DecisionBox, NoteBox, ExtendHoldButton } from "./decision";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
   const { code } = await params;
@@ -119,6 +119,7 @@ export default async function DisputePage({ params }: { params: Promise<{ code: 
             <div className="t-label text-text-3">Policy facts</div>
             <ul className="mt-2 flex flex-col gap-1 text-text-2">
               <li>· Hold available: {formatMoney(b.hold_cents, { whole: true })}{holdExpires ? ` (expires ${formatDate(holdExpires, tz)} — extend if undecided)` : ""}{b.hold_status !== "placed" ? ` · currently ${b.hold_status.replace("_", " ")}` : ""}</li>
+              {dispute.status !== "resolved" && ["placed", "expired"].includes(b.hold_status) && <li className="pt-1"><ExtendHoldButton code={dispute.code} /></li>}
               <li>· {waiver ? `Waiver bought → renter liable only above ${formatMoney(config.waiver.covers_up_to_cents, { whole: true })} of accidental damage` : "No waiver → renter liable for accidental damage up to the hold"}</li>
               <li>· Normal wear on tools &gt;{d.policy.wear_min_age} yrs: reduce by {d.policy.wear_pct}%{b.age_years != null ? ` (this tool: ${b.age_years} yrs${wearApplies ? " → applies" : " → no allowance"})` : ""}</li>
               <li>· Provider claims upheld in full only with matched-angle photo pairs</li>

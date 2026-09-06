@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { requireUser, withActor, runAsSystem } from "@/lib/auth";
+import { requireUserPage, withActor, runAsSystem } from "@/lib/auth";
 import { getLiveConfig } from "@/lib/settings/live";
 import { now } from "@/lib/time";
 import { getBookingByRef, type BookingDetail } from "@/lib/queries/bookings";
@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ref: stri
 }
 
 export default async function BookingDetailPage({ params }: { params: Promise<{ ref: string }> }) {
-  const [{ ref }, actor, config] = await Promise.all([params, requireUser(), getLiveConfig()]);
+  const [{ ref }, actor, config] = await Promise.all([params, requireUserPage(), getLiveConfig()]);
   const b = await withActor((trx) => getBookingByRef(trx, ref));
   if (!b || b.renter.id !== actor.userId) notFound();
   const nowAt = now();

@@ -35,6 +35,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={`${jakarta.variable} ${dmMono.variable} h-full`}>
       <body className="min-h-full flex flex-col">
+        <a href="#main" className="skip-link">Skip to content</a>
         <ToastProvider>{children}</ToastProvider>
       </body>
     </html>

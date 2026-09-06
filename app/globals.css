@@ -236,3 +236,33 @@
   animation: fr-skeleton 1.4s ease infinite;
   border-radius: 8px;
 }
+
+/* ---- accessibility ---- */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--color-charcoal, #1e1e1c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--color-cobalt, #1e42e8);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

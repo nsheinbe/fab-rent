@@ -66,7 +66,7 @@ test("search → listing → book → sign in → pay → confirmation → renta
   // rentals: the new booking is listed as upcoming, and its detail page opens
   await page.getByTestId("view-booking").click();
   await page.waitForURL(new RegExp(`/rentals/${ref}$`));
-  await expect(page.getByText(/Booked & paid|Requested · charged/)).toBeVisible();
+  await expect(page.getByText(/Booked & paid|Requested · charged/).first()).toBeVisible();
   await page.goto("/rentals");
   await expect(page.getByRole("link", { name: LISTING }).first()).toBeVisible();
 

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
 import { Icon, type IconName } from "@/components/ui/icons";
+import { InboxBadge } from "./unread";
 
 const TABS: Array<{ href: string; label: string; icon: IconName; match: (p: string) => boolean }> = [
   { href: "/", label: "Explore", icon: "compass", match: (p) => p === "/" || p.startsWith("/search") || p.startsWith("/listings") || p.startsWith("/categories") },
@@ -23,6 +24,7 @@ export function BottomTabBar({ badges }: { badges?: Partial<Record<string, boole
           <Link key={t.href} href={t.href} className={cn("relative flex w-16 flex-col items-center gap-[3px] text-[10px] font-semibold no-underline", active ? "text-cobalt hover:text-cobalt" : "text-text-3 hover:text-charcoal")} aria-current={active ? "page" : undefined}>
             <Icon name={t.icon} size={24} />
             {t.label}
+            {t.label === "Inbox" && <InboxBadge className="absolute -top-1 right-2.5 border-2 border-paper" />}
             {badges?.[t.label] && <span className="absolute right-3.5 -top-0.5 size-2 rounded-full border-2 border-paper bg-error" aria-label="Attention" />}
           </Link>
         );

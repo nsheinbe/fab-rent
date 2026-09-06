@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { getPaymentMethods } from "@/lib/queries/renter";
 import { formatDate } from "@/lib/format";
 import { RenterPage } from "@/components/domain/renter-page";
@@ -15,7 +15,7 @@ export const metadata: Metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
 
 export default async function ProfilePage() {
-  const actor = await requireUser();
+  const actor = await requireUserPage();
   const p = actor.profile!;
   const [methods, row] = await withActor((trx) => Promise.all([getPaymentMethods(trx, actor.userId!), trx.selectFrom("profiles").select("joined_at").where("id", "=", actor.userId!).executeTakeFirst()]));
   const joined = row?.joined_at ?? new Date();

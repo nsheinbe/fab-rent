@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { getLiveConfig } from "@/lib/settings/live";
 import { comingWeekend, now } from "@/lib/time";
 import { listSavedListings } from "@/lib/queries/renter";
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 
 /** Saved listings, priced for the coming weekend like the home page. */
 export default async function SavedPage() {
-  const [actor, config] = await Promise.all([requireUser(), getLiveConfig()]);
+  const [actor, config] = await Promise.all([requireUserPage(), getLiveConfig()]);
   const tz = config.market.timezone;
   const { start, end } = comingWeekend(now(), tz);
   const saved = await withActor((trx) => listSavedListings(trx, actor.userId!));

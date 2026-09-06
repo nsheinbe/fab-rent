@@ -4,6 +4,7 @@ import { cn } from "@/lib/cn";
 import { Logo } from "./logo";
 import { Avatar } from "@/components/ui/avatar";
 import { Icon } from "@/components/ui/icons";
+import { InboxBadge } from "./unread";
 
 export interface RenterHeaderProps {
   user: { name: string } | null;
@@ -45,7 +46,7 @@ export function RenterHeader({ user, search, variant = "home", className, checko
         ) : user ? (
           <>
             <Link href="/rentals" className="text-[13px] font-semibold text-text-2 no-underline hover:text-charcoal">Rentals</Link>
-            <Link href="/inbox" className="text-[13px] font-semibold text-text-2 no-underline hover:text-charcoal">Inbox</Link>
+            <Link href="/inbox" className="flex items-center gap-1.5 text-[13px] font-semibold text-text-2 no-underline hover:text-charcoal">Inbox<InboxBadge /></Link>
             <Link href="/profile" className="no-underline" aria-label="Profile"><Avatar name={user.name} size={36} tone="cobalt" /></Link>
           </>
         ) : (

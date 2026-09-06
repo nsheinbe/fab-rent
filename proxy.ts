@@ -8,7 +8,10 @@ import { ANON_COOKIE, SESSION_COOKIE, decodeSession } from "@/lib/auth/session";
  */
 export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
-  const response = NextResponse.next();
+  // lets server components know the current URL (requireUserPage builds its /auth?next= from it)
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", pathname + search);
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
 
   if (!request.cookies.get(ANON_COOKIE)) {
     const key = crypto.randomUUID().replace(/-/g, "");

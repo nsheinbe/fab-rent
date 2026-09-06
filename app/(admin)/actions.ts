@@ -11,6 +11,7 @@ import { previewDecision, type DisputeDecision } from "@/lib/pricing/claims";
 import { formatMoney } from "@/lib/format";
 import type { ActionResult } from "@/app/(renter)/actions";
 import { diffConfigs } from "@/lib/settings/diff";
+import { extendHold } from "@/lib/jobs";
 
 type Staff = Actor & { staff: NonNullable<Actor["staff"]> };
 const shortName = (n: string) => { const [f, ...rest] = n.split(" "); return rest.length ? `${f} ${rest[rest.length - 1]![0]}.` : f!; };
@@ -39,6 +40,24 @@ export async function assignDispute(code: string, staffId?: string | null): Prom
   revalidatePath(`/admin/disputes/${code}`);
   revalidatePath("/admin/disputes");
   return { ok: true, data: undefined };
+}
+
+/** Re-authorise a lapsing hold while a dispute is undecided (A04: "extend if undecided"). */
+export async function extendDisputeHold(code: string): Promise<ActionResult<{ expires_at: string }>> {
+  const actor = await requireStaff();
+  if (!can(actor, "disputes")) return { ok: false, error: "Disputes permission required" };
+  const r = await withActor(async (trx) => {
+    const d = await trx.selectFrom("disputes").select(["id", "booking_id"]).where("code", "=", code).executeTakeFirstOrThrow();
+    const res = await asSystem(trx, (t) => extendHold(t, d.booking_id));
+    if (res.ok) {
+      await trx.updateTable("disputes").set({ last_event: "Hold extended", last_event_at: now() }).where("id", "=", d.id).execute();
+      await log(trx, actor, `extended hold on ${code}`, { type: "dispute", id: d.id, label: code });
+    }
+    return res;
+  });
+  if (!r.ok || !r.expires_at) return { ok: false, error: r.error ?? "Couldn't extend the hold" };
+  revalidatePath(`/admin/disputes/${code}`);
+  return { ok: true, data: { expires_at: r.expires_at.toISOString() } };
 }
 
 export async function requestMoreEvidence(code: string, side: "renter" | "provider", message: string): Promise<ActionResult> {

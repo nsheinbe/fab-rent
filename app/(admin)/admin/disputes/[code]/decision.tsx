@@ -6,9 +6,21 @@ import { Button } from "@/components/ui/button";
 import { DialogRoot, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { useToast } from "@/components/ui/toast";
-import { formatMoney } from "@/lib/format";
+import { formatDate, formatMoney } from "@/lib/format";
 import { previewDecision, type DisputeDecision } from "@/lib/pricing/claims";
-import { addInternalNote, assignDispute, requestMoreEvidence, resolveDispute } from "@/app/(admin)/actions";
+import { addInternalNote, assignDispute, extendDisputeHold, requestMoreEvidence, resolveDispute } from "@/app/(admin)/actions";
+
+/** Re-authorises the card hold for another authorisation window (7 days on Stripe and the mock provider). */
+export function ExtendHoldButton({ code }: { code: string }) {
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const toast = useToast();
+  return (
+    <Button size="md" variant="secondary" loading={pending} data-testid="extend-hold" onClick={() => start(async () => { const r = await extendDisputeHold(code); toast({ title: r.ok ? `Hold extended to ${formatDate(new Date(r.data.expires_at))}` : r.error, tone: r.ok ? "ok" : "error" }); router.refresh(); })}>
+      Extend hold
+    </Button>
+  );
+}
 
 export function DisputeActions({ code, assigned }: { code: string; assigned: boolean }) {
   const [open, setOpen] = useState(false);

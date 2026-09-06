@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { getBookingByRef } from "@/lib/queries/bookings";
 import { formatDate, formatDateRangeCompact, itemNoun } from "@/lib/format";
 import { RenterPage } from "@/components/domain/renter-page";
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "Leave a review" };
 export const dynamic = "force-dynamic";
 
 export default async function ReviewPage({ params }: { params: Promise<{ ref: string }> }) {
-  const [{ ref }, actor] = await Promise.all([params, requireUser()]);
+  const [{ ref }, actor] = await Promise.all([params, requireUserPage()]);
   const b = await withActor((trx) => getBookingByRef(trx, ref));
   if (!b || b.renter.id !== actor.userId) notFound();
   if (b.status !== "completed" || b.has_review) redirect(`/rentals/${ref}`);

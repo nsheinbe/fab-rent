@@ -55,6 +55,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ draft
         contact={{ name: actor.profile?.name ?? "", phone: actor.profile?.phone ?? "", email: actor.profile?.email ?? "", id_verified: actor.profile?.id_verified ?? false }}
         methods={methods.map((m) => ({ id: m.id, brand: m.brand, last4: m.last4, exp: m.exp_month && m.exp_year ? `${String(m.exp_month).padStart(2, "0")}/${String(m.exp_year).slice(2)}` : null, is_default: m.is_default }))}
         instant={eligible}
+        stripe={process.env.PAYMENTS_PROVIDER === "stripe" && !!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
       />
     </>
   );

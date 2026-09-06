@@ -18,6 +18,7 @@ import type { Quote } from "@/lib/pricing";
 import type { MarketplaceConfig } from "@/lib/settings/schema";
 import { addPaymentMethod, checkout, updateContact, verifyIdentity } from "@/app/(renter)/actions";
 import { StepBar } from "@/app/(renter)/book/[listingId]/builder";
+import { StripeCard } from "@/components/domain/stripe-card";
 
 interface Method { id: string; brand: string; last4: string; exp: string | null; is_default: boolean }
 interface Props {
@@ -30,6 +31,8 @@ interface Props {
   contact: { name: string; phone: string; email: string; id_verified: boolean };
   methods: Method[];
   instant: boolean;
+  /** PAYMENTS_PROVIDER=stripe with a publishable key: collect cards with the Stripe Card Element */
+  stripe?: boolean;
 }
 
 function brandFor(number: string): "Visa" | "Mastercard" | "Amex" | null {
@@ -113,7 +116,7 @@ export function CheckoutForm(props: Props) {
         <ContactDialog contact={contact} onSaved={(c) => { setContact((x) => ({ ...x, ...c })); setEditContact(false); }} desktop={desktop} />
       </DialogRoot>
       <DialogRoot open={addCard} onOpenChange={setAddCard}>
-        <AddCardDialog desktop={desktop} onAdded={(m) => { setMethods((ms) => [...ms, m]); setSelected(m.id); setAddCard(false); }} />
+        <AddCardDialog desktop={desktop} stripe={!!props.stripe} onAdded={(m) => { setMethods((ms) => [...ms, m]); setSelected(m.id); setAddCard(false); }} />
       </DialogRoot>
     </>
   );
@@ -247,7 +250,28 @@ function ContactDialog({ contact, onSaved, desktop }: { contact: { name: string;
   return desktop ? <DialogContent title="Contact details" size="sm" footer={footer}>{body}</DialogContent> : <SheetContent title="Contact details" footer={<Button size="xl" block onClick={save} loading={pending}>Save</Button>}>{body}</SheetContent>;
 }
 
-function AddCardDialog({ onAdded, desktop }: { onAdded: (m: Method) => void; desktop: boolean }) {
+function AddCardDialog({ onAdded, desktop, stripe }: { onAdded: (m: Method) => void; desktop: boolean; stripe: boolean }) {
+  return stripe ? <AddCardStripe onAdded={onAdded} desktop={desktop} /> : <AddCardMock onAdded={onAdded} desktop={desktop} />;
+}
+
+/** Stripe mode: the Card Element tokenises the card; we store the payment method id + masked data. */
+function AddCardStripe({ onAdded, desktop }: { onAdded: (m: Method) => void; desktop: boolean }) {
+  const toast = useToast();
+  const body = (
+    <StripeCard
+      size={desktop ? "md" : "xl"}
+      onSaved={async (c) => {
+        const r = await addPaymentMethod({ brand: c.brand, last4: c.last4, exp_month: c.exp_month, exp_year: c.exp_year, makeDefault: c.makeDefault, provider_ref: c.provider_ref });
+        if (r.ok) onAdded({ id: r.data.id, brand: c.brand, last4: c.last4, exp: `${String(c.exp_month).padStart(2, "0")}/${String(c.exp_year).slice(2)}`, is_default: c.makeDefault });
+        else toast({ title: r.error, tone: "error" });
+      }}
+    />
+  );
+  return desktop ? <DialogContent title="Add a card" size="sm">{body}</DialogContent> : <SheetContent title="Add a card">{body}</SheetContent>;
+}
+
+/** Demo mode: masked fields only — brand, last4 and expiry are all that ever leave the browser. */
+function AddCardMock({ onAdded, desktop }: { onAdded: (m: Method) => void; desktop: boolean }) {
   const [number, setNumber] = useState("");
   const [exp, setExp] = useState("");
   const [makeDefault, setMakeDefault] = useState(false);

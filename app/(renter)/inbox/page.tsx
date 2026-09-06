@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireUser, withActor } from "@/lib/auth";
+import { requireUserPage, withActor } from "@/lib/auth";
 import { listConversations } from "@/lib/queries/renter";
 import { bookingStatus, isBookingStatus } from "@/lib/booking-state";
 import { formatDate, formatTime } from "@/lib/format";
@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Inbox" };
 export const dynamic = "force-dynamic";
 
 export default async function InboxPage() {
-  const actor = await requireUser();
+  const actor = await requireUserPage();
   const convs = await withActor((trx) => listConversations(trx, "renter", actor.userId!));
   const user = actor.profile ? { name: actor.profile.name } : null;
   const today = formatDate(now());

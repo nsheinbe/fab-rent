@@ -120,7 +120,7 @@ With the Supabase CLI: `supabase start && supabase db reset` applies the same mi
 ## Assumptions & deviations (running list)
 
 1. **No Docker in the build environment** → the app's data path is SQL via Kysely/pg with RLS-enforcing transactions instead of PostgREST. Supabase Auth/Storage/Realtime are used when configured; otherwise demo-mode adapters. Migrations are validated against a local PostgreSQL 16 (`supabase/local/00_auth_shim.sql` provides `auth.users`, `auth.uid()`, `auth.jwt()` and the `anon/authenticated/service_role` roles that Supabase ships out of the box).
-2. **Repo README** described an unrelated "local manufacturing" idea; replaced by the fab.rent README in Phase 4.
+2. **Repo README** described an unrelated "local manufacturing" idea; replaced by the fab.rent README (Phase 4).
 3. **Demo clock**: `DEMO_NOW = 2026-09-05T10:00` market time (brief §8). Design screens are anchored at slightly different moments (e.g. the Hilti return at 14:10 and the dispute at 14:40 on Sat 5 Sep). To keep the dispute `D-0912` coherent at 10:00 Sat, `FR-9DLA-P2` is seeded one day earlier (due Fri 4 Sep 12:00, returned 14:10, disputed 14:40 → decision due Sun 6 Sep 14:40). A separate Northlands booking is seeded as `overdue` so the dashboard's "Overdue" row and "Returns due today" stat have data.
 4. **Market time zone**: "Maren Standard" is mapped to the IANA zone `America/Puerto_Rico` (UTC−4, no DST) so demo times never shift.
 5. **Weekend rate** applies only when the span starts on a Friday and ends on the immediately following Monday (vector 1, Fri → Sun, is billed at the day rate).
@@ -139,7 +139,7 @@ With the Supabase CLI: `supabase start && supabase db reset` applies the same mi
 18. **Reviewer names** on public listing pages come from the `public_profiles` view (id, name, neighbourhood, avatar, ratings, joined) rather than a wider profiles read policy; emails, phones and flags never leave the base table.
 19. **Review photos** upload to the private `evidence` bucket under `reviews/<ref>/` (served via signed URLs); message photos go to `condition-photos/messages/<conversation>/`. The listing-photos bucket stays provider-only.
 20. **Extension availability** ("Your unit is free until Wed") needs other renters' bookings, which RLS hides; the renter-facing pages read just the next `start_at` as system. Everything else on those pages is RLS-scoped.
-21. **Realtime** for the inbox lands in Phase 4; until then the thread refreshes every 15 s and posts optimistically.
+21. **Realtime**: with Supabase configured the thread subscribes to inserts on `messages` (added to the `supabase_realtime` publication in migration 006) and keeps a 60 s safety poll; in demo mode it polls every 15 s. Sends are optimistic in both modes.
 22. **Claims** raised at return check-in are answered by the renter on the booking detail page (Accept captures the amount from the hold; Dispute routes to ops). The design has no dedicated renter claim screen, so this is a card in M11's layout.
 23. **Provider shell**: the sidebar collapses to the 64 px icon rail on the dense pages the design shows with the "f." mark (bookings, listing editor, calendar, earnings); below `md` the sections become a scrollable chip row under the header (the designs are desktop-only for P01–P04/P07, phone-first for P05/P06).
 24. **Approve auto-assigns a unit** when the request is for one unit and none is assigned (first free unit for the span); the panel and calendar can still move it. Multi-unit bookings track a lead unit; the calendar shows unassigned requests under the first unit row.
@@ -149,9 +149,56 @@ With the Supabase CLI: `supabase start && supabase db reset` applies the same mi
 28. **Calendar views**: Week is the designed view (P04); Day is one column, Month is a 28-day strip of the same grid. Drag-to-reassign ships as click-to-reassign (deviation 11); clicking empty space blocks dates for that unit.
 29. **Listing edits route through review** when a published listing's title, description, category, day rate or hold changes (§7 edited-listing rules); other fields save directly and apply to new bookings only. Photo hashes are derived from the storage path in demo mode (no image hashing library).
 30. **Return checklist areas** are generic (body & housing, working parts, accessories, cleanliness) rather than per-category templates; the provider's issue notes name the part.
-31. **Admin console** (A01–A05) is desktop-first; below `md` the sections become the same chip row as the provider shell. Overview "Search → booking" shows "—" until search analytics land (Phase 4); the other health metrics are computed from bookings in the last 30 days (on-time = hold placed within 30 min of start; holds released ≤3 business days ≈ ≤5 calendar days).
+31. **Admin console** (A01–A05) is desktop-first; below `md` the sections become the same chip row as the provider shell. Overview "Search → booking" shows "—" (no search analytics in the pilot); the other health metrics are computed from bookings in the last 30 days (on-time = hold placed within 30 min of start; holds released ≤3 business days ≈ ≤5 calendar days).
 32. **Dispute decisions** capture the upheld amount from the hold via `admin_decision` (no commission on claims), mark the claims settled/dismissed, log to `admin_actions`, post a system message to the booking thread and set the appeal window from settings. "Goodwill credit" pays the provider from the platform ledger and releases the whole hold. The seeded dispute D-0912 defaults to "uphold partially" at $144 (20 % wear allowance on a 3-year-old tool).
 33. **Settings publishing** is single-admin in the pilot (the design asks for a second approval); every publish archives the previous live version, mirrors cancellation policies to their table and logs an admin action; rollback creates a new live version copying the archived config so history stays linear. Drafts store the full config plus a computed path-level diff.
 34. **Listing review decisions**: approve publishes immediately; request changes hides the listing (`changes_requested`), stores the checklist and pauses the SLA; reject stores the reason. Reported listings resolve their open reports on decision.
 35. **Users**: the "Invite staff" button is a mailto in the pilot; suspend/reinstate and flag clearing are real and logged.
+36. **Stripe cards** (`PAYMENTS_PROVIDER=stripe` + publishable key): checkout swaps the masked demo form for the Stripe Card Element (`components/domain/stripe-card.tsx`). The browser creates the payment method, `/api/payments/setup-intent` creates/reuses the renter's Stripe customer (`profiles.stripe_customer_id`) and returns a SetupIntent, and `addPaymentMethod` re-reads brand/last4/expiry from Stripe and refuses methods not attached to that customer. Charges and holds run off-session; holds are manual-capture PaymentIntents. `STRIPE_CURRENCY` (default `usd`) stands in for the fictional MRD.
+37. **Stripe webhook** (`/api/webhooks/stripe`, signature-verified): `payment_intent.canceled` → `hold_status = expired` + `hold_expired` event; `payment_intent.payment_failed` → `payment_failed` event; `charge.dispute.created` → renter flagged `chargeback`, auto-suspended when `verification.auto_suspend_on_chargeback` is on, internal note + admin action. Each handler is a state check, so redeliveries are harmless.
+38. **Scheduled jobs** live in `lib/jobs` and run through `/api/cron/[job]` (`CRON_SECRET` as bearer or `?secret=`; `vercel.json` has the schedules): `returns`, `holds`, `claims` (open claims past `renter_respond_by` → claim + booking `disputed`, dispute row created, `claim_escalated` event), `reviews` (publish after `review_auto_publish_days`), `hold-expiry` (lapsed authorisations → `expired`), `all`.
+39. **Extend hold**: the dispute view's "extend if undecided" is a real action (`extendDisputeHold`) that re-authorises through `PaymentProvider.extendAuthorization` (7 days on both providers), rewrites `payment_refs.hold`, logs an admin action and a `hold_extended` event. Shown only while the dispute is open and the hold is `placed` or `expired`.
+40. **Signed-out renter pages** (`/rentals`, `/inbox`, `/saved`, `/profile`, confirmed, extend, review) redirect to `/auth?next=<current url>` via `requireUserPage()`; `proxy.ts` passes the URL to server components in an `x-pathname` request header. Server actions keep throwing `AuthError` (they never redirect).
+41. **Error and loading boundaries**: `error.tsx` per route group (renter, provider, admin) keeps the surrounding shell and offers retry + a way home; `loading.tsx` skeletons (`PageSkeleton`) on the signed-in renter roots and both consoles. A page that redirects from inside a Suspense boundary streams a 200 with a client redirect — that is Next's behaviour, not a bug.
+42. **Accessibility**: skip link to `#main` (the renter shell wrapper and the console `<main>`), `prefers-reduced-motion` disables the sheet/toast/skeleton animations, dialogs and sheets are Radix (focus trap, escape, labelled), tables use real `<table>` semantics, every icon-only control has an `aria-label`, toasts are `aria-live`.
+43. **Unread badge**: the renter layout computes the unread count once per request (`getUnreadCount`) and provides it through a small client context to the desktop "Inbox" link and the mobile tab bar; `router.refresh()` after sending/reading keeps it current.
+44. **Deferred from the brief**: second-approver publishing for settings (33), drag-to-reassign (11/28), per-category return templates (30), search analytics (31), provider onboarding/invite flows (35), Supabase Storage image hashing for duplicate-photo checks (29). Each has a working single-step stand-in.
 
+## Design reconciliation (frame → route)
+
+Every frame in `design/*.dc.html` maps to a route. "Notes" points at the deviation that explains any intentional difference.
+
+| Frame | Route | Notes |
+| --- | --- | --- |
+| Overview | `/styleguide` | tokens, type, components, pills, states |
+| M01 Home | `/` | tab bar (16) |
+| M02 Results · list | `/search` | derived availability, "hidden for your dates" |
+| M03 Filters | `/search` (filter sheet) | histogram from live results |
+| M04 Results · map | `/search?view=map` | MapLibre demo tiles or the placeholder pattern |
+| M05 Listing details | `/listings/[slug]` | calendar `bookedDays`, reviews via `public_profiles` (18) |
+| M06 Booking · 1 of 3 | `/book/[listingId]` | draft stored server-side, anonymous drafts survive sign-in |
+| M07 Sign in · interstitial | `/auth?next=` | demo accounts + inline OTP (12) |
+| M08 Booking · 2 of 3 (checkout) | `/checkout/[draftId]` | mock or Stripe card entry (36) |
+| M09 Confirmation | `/bookings/[ref]/confirmed` | receipt PDF, .ics |
+| M10 My rentals | `/rentals` | derived labels (10) |
+| M11 Booking detail | `/rentals/[ref]` | claim response card (22), desktop split (15) |
+| M12 Extension request | `/rentals/[ref]/extend` | free-until from next booking (20) |
+| M13 Messages | `/inbox`, `/inbox/[id]` | realtime / polling (21), photo messages (19) |
+| M14 Review | `/rentals/[ref]/review` | double-blind publish (38 `reviews`) |
+| W01 Home · desktop | `/` at `lg` | |
+| W02 Results · list + map | `/search` at `lg`/`xl` | pins mirror the grid selection |
+| W03 Listing details | `/listings/[slug]` at `lg` | |
+| W04 Checkout · signed in | `/checkout/[draftId]` at `lg` | |
+| W05 Listing · tablet | `/listings/[slug]` between `md` and `lg` | |
+| P01 Dashboard | `/provider` | greeting/date from `DEMO_NOW` |
+| P02 Bookings | `/provider/bookings` | side panel actions, auto-assign (24) |
+| P03 Listing editor | `/provider/listings/[id]` | review routing on material edits (29) |
+| P04 Calendar · units | `/provider/calendar` | click-to-reassign (11, 28) |
+| P05 Handoff · condition | `/provider/bookings/[ref]/handoff` | canvas signature, private bucket (27) |
+| P06 Return check-in | `/provider/bookings/[ref]/return` | late fee separate from hold (26), generic areas (30) |
+| P07 Earnings & payouts | `/provider/earnings` | CSV exports, payout schedule |
+| A01 Overview | `/admin` | health metrics from last 30 days (31) |
+| A02 Users | `/admin/users` | suspend / flags (35) |
+| A03 Listing review | `/admin/listing-review/[id]` | checks + decisions (34) |
+| A04 Dispute · damage | `/admin/disputes/[code]` | decision box (32), extend hold (39) |
+| A05 Marketplace settings | `/admin/settings` | live v41 / draft v42 (13), single-admin publish (33) |

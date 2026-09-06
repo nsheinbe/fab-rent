@@ -21,6 +21,18 @@ export class StripePaymentProvider implements PaymentProvider {
     throw new PaymentError("provider_error", (e as Error).message);
   }
 
+  /** Off-session charges need the customer the payment method is attached to; look it up when the caller doesn't know it. */
+  private async customerFor(method: PaymentMethodRef): Promise<string | undefined> {
+    if (method.customer_ref) return method.customer_ref;
+    if (!method.provider_ref) return undefined;
+    try {
+      const pm = await this.stripe.paymentMethods.retrieve(method.provider_ref);
+      return typeof pm.customer === "string" ? pm.customer : pm.customer?.id;
+    } catch {
+      return undefined;
+    }
+  }
+
   private currency() {
     // MRD is fictional; Stripe test mode is run in a real currency configured here.
     return (process.env.STRIPE_CURRENCY ?? "usd").toLowerCase();
@@ -33,7 +45,7 @@ export class StripePaymentProvider implements PaymentProvider {
           amount: input.amount_cents,
           currency: this.currency(),
           payment_method: input.method.provider_ref ?? undefined,
-          customer: input.method.customer_ref ?? undefined,
+          customer: await this.customerFor(input.method),
           confirm: true,
           off_session: true,
           description: input.description,
@@ -56,7 +68,7 @@ export class StripePaymentProvider implements PaymentProvider {
           amount: input.amount_cents,
           currency: this.currency(),
           payment_method: input.method.provider_ref ?? undefined,
-          customer: input.method.customer_ref ?? undefined,
+          customer: await this.customerFor(input.method),
           confirm: true,
           off_session: true,
           capture_method: "manual",

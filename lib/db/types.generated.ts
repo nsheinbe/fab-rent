@@ -557,6 +557,7 @@ export interface Profiles {
   rating_from_providers: Numeric | null;
   role: Generated<ProfileRole>;
   status: Generated<ProfileStatus>;
+  stripe_customer_id: string | null;
   updated_at: Generated<Timestamp>;
 }
 
