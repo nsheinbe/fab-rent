@@ -51,6 +51,8 @@ export interface ShellProps {
   variant: "provider" | "admin";
   /** collapse to the 64 px icon rail (used on dense pages like bookings/calendar) */
   collapsed?: boolean;
+  /** route prefixes that collapse the rail automatically (P02/P03/P04/P07 show the "f." rail) */
+  collapseOn?: string[];
   contentClassName?: string;
 }
 
@@ -58,8 +60,10 @@ export interface ShellProps {
  * ProviderShell (paper left nav, 228 px) and AdminShell (charcoal left nav, 220 px) share one layout:
  * left nav with count badges → 64 px header → content. Both collapse to a 64 px icon rail.
  */
-export function Shell({ nav, header, children, footer, variant, collapsed, contentClassName }: ShellProps) {
+export function Shell({ nav, header, children, footer, variant, collapsed: forced, collapseOn, contentClassName }: ShellProps) {
   const dark = variant === "admin";
+  const pathname = usePathname() ?? "";
+  const collapsed = forced ?? (collapseOn?.some((p) => pathname.startsWith(p)) ?? false);
   return (
     <div className={cn("flex min-h-screen bg-ivory")}>
       <aside className={cn("sticky top-0 hidden h-screen flex-none flex-col md:flex", dark ? "bg-charcoal text-white" : "border-r border-border bg-paper", collapsed ? "w-16 items-center py-5" : dark ? "w-[220px] px-3 pt-5 pb-4" : "w-[228px] px-3 pt-5 pb-4")} aria-label={`${variant} navigation`}>
@@ -91,6 +95,8 @@ export function Shell({ nav, header, children, footer, variant, collapsed, conte
       </aside>
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-30 flex h-16 flex-none items-center justify-between gap-4 border-b border-border bg-paper px-4 md:px-6 lg:px-7">{header}</header>
+        {/* below md the side nav is hidden: sections become a scrollable chip row */}
+        <MobileSectionNav nav={nav} dark={dark} />
         <main className={cn("flex-1 min-w-0", contentClassName)}>{children}</main>
       </div>
     </div>
@@ -144,5 +150,23 @@ export function StatCard({ label, value, sub, dark, subTone, mono, className, ch
       {sub && <div className={cn("text-[12px]", dark ? (subTone === "error" ? "text-[#FFB4AB] font-semibold" : "text-on-dark-muted") : subTone === "ok" ? "font-semibold text-ok-text" : subTone === "error" ? "font-semibold text-error-text" : subTone === "warn" ? "font-semibold text-warn-text" : "text-text-3")}>{sub}</div>}
       {children}
     </div>
+  );
+}
+
+function MobileSectionNav({ nav, dark }: { nav: NavItem[]; dark: boolean }) {
+  const pathname = usePathname() ?? "";
+  return (
+    <nav className={cn("flex gap-1.5 overflow-x-auto scrollbar-none border-b px-3 py-2 md:hidden", dark ? "border-white/10 bg-charcoal" : "border-border bg-paper")} aria-label="Sections">
+      {nav.map((n) => {
+        const active = n.exact ? pathname === n.href : pathname === n.href || pathname.startsWith(n.href + "/");
+        return (
+          <Link key={n.href} href={n.href} aria-current={active ? "page" : undefined} className={cn("inline-flex h-8 flex-none items-center gap-1.5 rounded-pill px-3 text-[12px] font-semibold no-underline", active ? (dark ? "bg-white text-charcoal" : "bg-charcoal text-white") : dark ? "bg-white/10 text-white" : "border border-border bg-white text-charcoal")}>
+            <Icon name={n.icon} size={13} />
+            {n.label}
+            {n.count ? <span className={cn("rounded-pill px-1.5 text-[10px] font-bold", active ? "bg-white/20" : n.countTone === "error" ? "bg-error text-white" : "bg-cobalt text-white")}>{n.count}</span> : null}
+          </Link>
+        );
+      })}
+    </nav>
   );
 }

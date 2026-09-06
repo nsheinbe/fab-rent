@@ -87,3 +87,21 @@ export function comingWeekend(from: Date = now(), tz = marketTz): { start: Date;
   const end = fromZonedTime(addHours(addDays(fri, 2), 17), tz);
   return { start, end };
 }
+
+/** Next payout date for a schedule ("weekly_tue", "weekly_fri", "daily", "monthly_1") strictly after `after`, at 09:00 market time. */
+export function nextPayoutDate(after: Date, schedule: string, tz = marketTz): Date {
+  const local = toMarket(after, tz);
+  const at = new Date(local);
+  at.setHours(9, 0, 0, 0);
+  if (schedule === "daily") {
+    at.setDate(at.getDate() + 1);
+  } else if (schedule.startsWith("monthly")) {
+    at.setMonth(at.getMonth() + 1, 1);
+  } else {
+    const target = { mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6, sun: 0 }[schedule.split("_")[1] ?? "tue"] ?? 2;
+    let delta = (target - at.getDay() + 7) % 7;
+    if (delta === 0) delta = 7;
+    at.setDate(at.getDate() + delta);
+  }
+  return marketLocal(`${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}T09:00:00`, tz);
+}

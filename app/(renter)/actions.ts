@@ -280,7 +280,7 @@ export async function requestExtension(ref: string, extraDays: number): Promise<
     if (!b) return { ok: false as const, error: "Booking not found" };
     if (!["active", "return_due", "confirmed", "ready_for_pickup", "out_for_delivery"].includes(b.status)) return { ok: false as const, error: "This rental can't be extended any more" };
     const newEnd = new Date(b.end_at.getTime() + days * 86_400_000);
-    const free = await sql<{ n: number }>`select count(*)::int as n from public.free_units(${b.listing_id}::uuid, ${b.end_at.toISOString()}::timestamptz, ${newEnd.toISOString()}::timestamptz, ${b.id}::uuid) f ${b.unit_id ? sql`where f.free_units = ${b.unit_id}::uuid` : sql``}`.execute(trx);
+    const free = await sql<{ n: number }>`select count(*)::int as n from public.free_units(${b.listing_id}::uuid, ${b.end_at.toISOString()}::timestamptz, ${newEnd.toISOString()}::timestamptz, ${b.id}::uuid) f ${b.unit_id ? sql`where f = ${b.unit_id}::uuid` : sql``}`.execute(trx);
     if (Number(free.rows[0]?.n ?? 0) < (b.unit_id ? 1 : b.qty)) return { ok: false as const, error: "Your unit is booked by someone else after your return time — the provider may still be able to swap units, message them." };
     const q = quoteExtension(days, b.day_cents, b.qty, config);
     const existing = await trx.selectFrom("extension_requests").select("id").where("booking_id", "=", b.id).where("status", "=", "requested").executeTakeFirst();
