@@ -1,0 +1,268 @@
+@import "tailwindcss";
+
+/* fab.rent design tokens — the only place colours, radii and type live. */
+@theme {
+  --color-ivory: #f6f3ec;
+  --color-ivory-deep: #efebe2;
+  --color-paper: #fffdf9;
+  --color-border: #e3ded3;
+  --color-border-strong: #cec7b9;
+  --color-charcoal: #1e1e1c;
+  --color-text-2: #5f5c55;
+  --color-text-3: #6e6a61;
+  --color-placeholder: #8e8a80;
+  --color-on-dark-muted: #b9b5ac;
+  --color-cobalt: #1e42e8;
+  --color-cobalt-hover: #1836c2;
+  --color-cobalt-tint: #e9edfd;
+  --color-cobalt-tint-border: #c9d3fa;
+  --color-cobalt-wash: #f8f9ff;
+  --color-cobalt-light: #5b7bff;
+  --color-cobalt-pale: #bfd0ff;
+  --color-ok: #1b7f4c;
+  --color-ok-bg: #e2f3e8;
+  --color-ok-text: #166b40;
+  --color-warn: #b4650a;
+  --color-warn-bg: #fbefd8;
+  --color-warn-text: #8a4b06;
+  --color-warn-wash: #fffbf3;
+  --color-error: #b3261e;
+  --color-error-bg: #fbe7e5;
+  --color-error-text: #a3261e;
+  --color-error-wash: #fff7f6;
+  --color-neutral-dot: #8e8a80;
+  --color-white: #ffffff;
+
+  --font-sans: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-mono: var(--font-dm-mono), "DM Mono", ui-monospace, monospace;
+
+  --radius-card: 16px;
+  --radius-card-sm: 14px;
+  --radius-panel: 12px;
+  --radius-control: 10px;
+  --radius-icon: 12px;
+  --radius-pill: 999px;
+
+  --shadow-float: 0 10px 30px rgba(30, 30, 28, 0.07);
+  --shadow-card: 0 8px 24px rgba(30, 30, 28, 0.06);
+  --shadow-sticky: 0 16px 44px rgba(30, 30, 28, 0.08);
+  --shadow-sheet: 0 -12px 40px rgba(0, 0, 0, 0.25);
+  --shadow-pin: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  html,
+  body {
+    background: var(--color-ivory);
+    color: var(--color-charcoal);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  @media (min-width: 1024px) {
+    body {
+      font-size: 14px;
+    }
+  }
+
+  a {
+    color: var(--color-cobalt);
+  }
+  a:hover {
+    color: var(--color-cobalt-hover);
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-cobalt);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+/* Type scale */
+@utility t-display {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+}
+@utility t-title {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+@utility t-heading {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+@utility t-body {
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.5;
+  @media (min-width: 1024px) {
+    font-size: 14px;
+  }
+}
+@utility t-meta {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+@utility t-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+@utility t-mono {
+  font-family: var(--font-mono);
+}
+@utility t-logo {
+  font-weight: 800;
+  letter-spacing: -0.035em;
+  line-height: 1;
+}
+
+/* Surfaces */
+@utility card {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
+}
+@utility card-sm {
+  background: var(--color-white);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card-sm);
+}
+@utility well {
+  background: var(--color-ivory);
+  border-radius: var(--radius-control);
+}
+@utility truncate-1 {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+@utility safe-bottom {
+  padding-bottom: max(16px, env(safe-area-inset-bottom));
+}
+
+/* Map placeholder tile pattern (design: "Map tiles · demo") */
+@utility map-tiles {
+  background-color: #ece8de;
+  background-image:
+    linear-gradient(rgba(30, 30, 28, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(30, 30, 28, 0.045) 1px, transparent 1px);
+  background-size: 44px 44px;
+}
+
+/* Hatched calendar bars */
+@utility hatch-prep {
+  background: repeating-linear-gradient(135deg, #e9edfd 0 5px, #c9d3fa 5px 10px);
+}
+@utility hatch-blocked {
+  background: repeating-linear-gradient(135deg, #efebe2 0 6px, #e3ded3 6px 12px);
+}
+
+@keyframes fr-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes fr-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fr-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes fr-skeleton {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@utility skeleton {
+  background: linear-gradient(90deg, #efebe2 25%, #f6f3ec 50%, #efebe2 75%);
+  background-size: 200% 100%;
+  animation: fr-skeleton 1.4s ease infinite;
+  border-radius: 8px;
+}
+
+/* ---- accessibility ---- */
+.skip-link {
+  position: absolute;
+  left: 16px;
+  top: -100px;
+  z-index: 100;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--color-charcoal, #1e1e1c);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 16px;
+  outline: 2px solid var(--color-cobalt, #1e42e8);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
