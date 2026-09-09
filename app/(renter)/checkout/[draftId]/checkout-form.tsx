@@ -185,7 +185,7 @@ export function CheckoutForm(props: Props) {
           {breakdown("sm")}
         </section>
         <div className="px-5 pt-4">{agreement}</div>
-        {err && <div role="alert" className="mx-5 mt-3 rounded-control bg-error-bg px-3 py-2 text-[13px] font-semibold text-error-text">{err}</div>}
+        {err && <div role="alert" data-testid="checkout-error" className="mx-5 mt-3 rounded-control bg-error-bg px-3 py-2 text-[13px] font-semibold text-error-text">{err}</div>}
         <div className="h-4" />
         <div className="sticky bottom-0 mt-auto flex flex-col gap-2 border-t border-border bg-paper px-5 pt-3 pb-[max(20px,env(safe-area-inset-bottom))]">
           <Button size="xl" block className="!rounded-[12px]" onClick={pay} loading={pending} disabled={!agree || (!selected && methods.length > 0)} leading={<Icon name="lock" size={16} strokeWidth={2.2} />} data-testid="pay-button">Pay {formatMoney(quote.charged_cents)}</Button>
@@ -209,7 +209,7 @@ export function CheckoutForm(props: Props) {
             {paymentList(true)}
             {holdExplainer(true)}
             {agreement}
-            {err && <div role="alert" className="rounded-control bg-error-bg px-3 py-2 text-[13px] font-semibold text-error-text">{err}</div>}
+            {err && <div role="alert" data-testid="checkout-error" className="rounded-control bg-error-bg px-3 py-2 text-[13px] font-semibold text-error-text">{err}</div>}
             <div className="flex items-center justify-between gap-4">
               <Button size="xl" className="!rounded-[12px] !px-7" onClick={pay} loading={pending} disabled={!agree || (!selected && methods.length > 0)} leading={<Icon name="lock" size={16} strokeWidth={2.2} />} data-testid="pay-button">Pay {formatMoney(quote.charged_cents)}</Button>
               <div className="text-[12px] text-text-3">{payNote}</div>

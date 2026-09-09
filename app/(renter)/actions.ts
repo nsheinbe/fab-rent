@@ -9,7 +9,7 @@ import { getLiveConfig, getLiveSettings } from "@/lib/settings/live";
 import { getListingBySlug, getAvailability, originFor } from "@/lib/queries/listings";
 import { quoteBooking, QuoteError, distanceKm, instantBookEligible, quoteExtension, freeCancelUntil, sameDayAllowed } from "@/lib/pricing";
 import { transitionBooking, recordBookingEvent } from "@/lib/booking-state/transition";
-import { getPaymentProvider, PaymentError } from "@/lib/payments";
+import { getPaymentProvider, isPaymentError } from "@/lib/payments";
 import { getIdVerificationProvider } from "@/lib/id-verification";
 import { marketLocal, now } from "@/lib/time";
 import { asSystem, sql } from "@/lib/db";
@@ -164,7 +164,7 @@ export async function checkout(input: z.input<typeof checkoutSchema>): Promise<A
       const charge = await payments.charge({ amount_cents: quote.charged_cents, method: { id: method?.id ?? "apple-pay", provider_ref: method?.provider_ref ?? null, label: methodLabel }, description: `fab.rent · ${listing.title}`, idempotency_key: `charge:${draft.id}`, metadata: { draft: draft.id } });
       chargeRef = charge.ref;
     } catch (e) {
-      if (e instanceof PaymentError) return { ok: false, error: e.message, code: e.code };
+      if (isPaymentError(e)) return { ok: false, error: e.message, code: e.code };
       throw e;
     }
 

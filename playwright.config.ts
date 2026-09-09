@@ -23,7 +23,15 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
-    env: { ...process.env, DEMO_NOW: process.env.DEMO_NOW ?? "2026-09-05T10:00:00", PORT: String(port), NEXT_PUBLIC_DISABLE_MAPLIBRE: process.env.NEXT_PUBLIC_DISABLE_MAPLIBRE ?? "1" },
+    env: {
+      ...process.env,
+      DEMO_NOW: process.env.DEMO_NOW ?? "2026-09-05T10:00:00",
+      PORT: String(port),
+      NEXT_PUBLIC_DISABLE_MAPLIBRE: process.env.NEXT_PUBLIC_DISABLE_MAPLIBRE ?? "1",
+      // Hermetic: Playwright always drives the mock and exposes the inspect API. Never inherit live Stripe.
+      PAYMENTS_PROVIDER: "mock",
+      E2E_INSPECT: "1",
+    },
   },
   projects: [
     { name: "mobile-390", use: { ...devices["iPhone 14"], defaultBrowserType: "chromium", viewport: { width: 390, height: 844 } } },

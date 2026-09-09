@@ -3,8 +3,8 @@ import { addBusinessDays, addHours, now } from "@/lib/time";
 import { asSystem, sql, type Trx } from "@/lib/db";
 import { getPaymentProvider } from "@/lib/payments";
 import { getConfigForVersion } from "@/lib/settings/live";
-import { providerCancellation, renterCancellation } from "@/lib/pricing";
-import type { CancellationPolicy } from "@/lib/settings/schema";
+import { providerCancellation, providerCommission, renterCancellation, type CancellationResult } from "@/lib/pricing";
+import type { CancellationPolicy, MarketplaceConfig } from "@/lib/settings/schema";
 import { nextStatus, TransitionError, type ActorRole, type BookingEvent } from "./machine";
 import type { BookingStatus } from "./status";
 
@@ -65,6 +65,7 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
         // credits are system-owned: neither party may write them directly
         await asSystem(trx, (sys) => sys.insertInto("renter_credits").values({ profile_id: b.renter_id, booking_id: b.id, amount_cents: result.credit_cents, reason: `Provider cancellation · ${policy.name} policy credit` }).execute());
       }
+      await applyCancellationLedger(trx, { id: b.id, ref: b.ref, provider_id: b.provider_id }, result, config, at);
       Object.assign(patch, { cancelled_at: at, cancelled_by: event === "renter_cancel" ? "renter" : "provider", cancellation_snapshot: result, payment_refs: refs, hold_status: "none" });
       Object.assign(payload, { refunded_cents: result.refunded_cents, kept_rental_cents: result.kept_rental_cents, credit_cents: result.credit_cents, keep_pct: result.keep_pct });
       break;
@@ -136,6 +137,50 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
     .returning("id")
     .executeTakeFirstOrThrow();
   return { from, to, bookingId: b.id, eventId: ev.id };
+}
+
+/**
+ * Cancellation ledger: extras and delivery are always refunded, so the provider's rental
+ * row is rewritten to the kept rental only. Commission is 12 % of that kept rental — never
+ * on a refund, never on a claim. `net = gross + commission + adjustment` must hold.
+ */
+async function applyCancellationLedger(
+  trx: Trx,
+  b: { id: string; ref: string; provider_id: string },
+  result: CancellationResult,
+  config: MarketplaceConfig,
+  at: Date,
+) {
+  const commission = providerCommission(result.kept_rental_cents, 0, config);
+  const gross = result.kept_rental_cents;
+  const net = gross - commission;
+  const adjustment_label = result.kept_rental_cents <= 0 ? "cancelled · full refund" : `cancelled · ${result.keep_pct}% of rental kept`;
+  await asSystem(trx, async (sys) => {
+    const entry = await sys.selectFrom("ledger_entries").selectAll().where("booking_id", "=", b.id).where("type", "=", "rental").executeTakeFirst();
+    const values = {
+      gross_cents: gross,
+      commission_cents: -commission,
+      adjustment_cents: 0,
+      adjustment_label,
+      net_cents: net,
+      status: "available" as const,
+    };
+    if (entry) {
+      await sys.updateTable("ledger_entries").set(values).where("id", "=", entry.id).execute();
+      return;
+    }
+    await sys
+      .insertInto("ledger_entries")
+      .values({
+        provider_id: b.provider_id,
+        booking_id: b.id,
+        entry_date: sql`(${at.toISOString()}::timestamptz at time zone ${config.market.timezone})::date`,
+        type: "rental",
+        description: `Cancellation · ${b.ref}`,
+        ...values,
+      })
+      .execute();
+  });
 }
 
 /** Funds clear at return check-in: rental ledger entry → available (plus any captured claim, no commission). */
