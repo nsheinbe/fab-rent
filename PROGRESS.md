@@ -65,12 +65,12 @@ its `describe` name (`vector 1 — pickup, no extras`, …).
 
 | Gate | Result |
 | --- | --- |
-| Hermetic payments | Fail-closed without live Stripe secrets; CI refuses Stripe unless `HERMETIC=0` |
-| Typecheck | `pnpm typecheck` |
-| Lint | `pnpm lint` |
-| Unit tests | Pricing vectors, booking state, listing checks, mock recording, fail-closed Stripe |
-| Production build | `pnpm build` |
-| End to end | Existing happy paths, plus cancel-in-fee-window, accept-claim capture, declined checkout |
+| Hermetic payments | Pass — mock allowed; Stripe without secrets throws and names the missing keys |
+| Typecheck | Pass |
+| Lint | Pass, two image warnings on deliberate raw tags for user uploads |
+| Unit tests | 43 pass (was 35): pricing vectors, booking state, listing checks, mock recording, fail-closed Stripe |
+| Production build | Pass |
+| End to end | 7 pass, 5 skipped by design: existing happy paths plus cancel-in-fee-window, accept-claim capture, declined checkout |
 
 Money-path specs assert the ledger identity (`net = gross + commission + adjustment`) and the mock
 provider's recorded calls, not only the screen. They do not call live Stripe.

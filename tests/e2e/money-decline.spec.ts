@@ -39,7 +39,7 @@ test("declined card at checkout leaves no booking, hold or ledger", async ({ pag
   await expect(page.getByRole("radio", { name: /Visa •••• 0000/ }).first()).toBeChecked();
   await page.getByRole("button", { name: /^Pay \$/ }).first().click();
 
-  await expect(page.getByRole("alert")).toContainText(/card was declined/i);
+  await expect(page.getByTestId("checkout-error").last()).toContainText(/card was declined/i);
   await expect(page).toHaveURL(/\/checkout\//);
 
   const byEmail = await inspect(request, { email });

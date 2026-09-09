@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { assertHermeticPayments, e2eInspectEnabled, missingStripeSecrets } from "@/lib/payments/hermetic";
 import { MockPaymentProvider } from "@/lib/payments/mock";
 import { getPaymentProvider, resetPaymentProviderForTests } from "@/lib/payments";
-import { PaymentError } from "@/lib/payments/types";
+import { isPaymentError, PaymentError } from "@/lib/payments/types";
 
 const method = { id: "pm", provider_ref: null, label: "Visa •••• 4242" };
 const declined = { id: "pm-bad", provider_ref: null, label: "Visa •••• 0000" };
@@ -63,7 +63,7 @@ describe("mock payment recording", () => {
     const p = new MockPaymentProvider();
     const ok = await p.charge({ amount_cents: 20576, method, idempotency_key: "charge:ok" });
     expect(ok.amount_cents).toBe(20576);
-    await expect(p.charge({ amount_cents: 20576, method: declined, idempotency_key: "charge:no" })).rejects.toBeInstanceOf(PaymentError);
+    await expect(p.charge({ amount_cents: 20576, method: declined, idempotency_key: "charge:no" })).rejects.toSatisfy((e) => isPaymentError(e) && e.code === "declined");
     const calls = p.recordedCalls();
     expect(calls).toHaveLength(2);
     expect(calls[0]).toMatchObject({ op: "charge", ok: true, amount_cents: 20576, ref: ok.ref });

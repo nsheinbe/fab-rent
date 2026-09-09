@@ -45,7 +45,19 @@ export class PaymentError extends Error {
     message: string,
   ) {
     super(message);
+    this.name = "PaymentError";
+    Object.setPrototypeOf(this, new.target.prototype);
   }
+}
+
+export function isPaymentError(e: unknown): e is PaymentError {
+  if (e instanceof PaymentError) return true;
+  if (!e || typeof e !== "object") return false;
+  const code = "code" in e ? (e as { code: unknown }).code : null;
+  return (
+    e instanceof Error &&
+    (code === "declined" || code === "expired" || code === "not_found" || code === "invalid_amount" || code === "provider_error")
+  );
 }
 
 /** One recorded payment-boundary call. The mock keeps these so e2e can assert money paths, not only the screen. */

@@ -17,7 +17,8 @@ test("accepted claim captures from the hold and releases the remainder with no c
   await signInDemo(page, TOMAS, `/rentals/${REF}`);
   await page.waitForURL(new RegExp(`/rentals/${REF}`));
 
-  await expect(page.getByText("$80.00")).toBeVisible();
+  await expect(page.getByTestId("accept-claim")).toBeVisible();
+  await expect(page.getByText("$80.00", { exact: true })).toBeVisible();
   await page.getByTestId("accept-claim").click();
   await expect(page.getByText("Claim accepted").first()).toBeVisible();
 
