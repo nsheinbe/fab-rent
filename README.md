@@ -64,16 +64,22 @@ Without Supabase keys the app runs fully offline:
 | Command | What it does |
 | --- | --- |
 | `pnpm dev` / `pnpm build` / `pnpm start` | Next.js dev server / production build / serve |
-| `pnpm check` | `typecheck` + `lint` + unit tests — the pre-commit gate |
-| `pnpm test` | Vitest: pricing vectors (§5 of the brief), booking state machine, listing checks |
-| `pnpm test:e2e` | Playwright: renter happy path at 390 and 1280, provider handoff → return (mobile), admin dispute + listing review (desktop) |
+| `pnpm check` | Hermetic payments gate + `typecheck` + `lint` + unit tests — the pre-commit gate |
+| `pnpm test` | Vitest: pricing vectors (§5 of the brief), booking state machine, listing checks, hermetic payments |
+| `pnpm test:e2e` | Playwright: renter happy path at 390 and 1280, provider handoff → return (mobile), admin dispute + listing review (desktop), money paths (cancel / claim / declined card) |
+| `pnpm ci:hermetic` | Fail-closed if `PAYMENTS_PROVIDER=stripe` is set without live secrets, or in CI without `HERMETIC=0` |
 | `pnpm db:reset` | Drop/create the database, apply migrations and seed |
 | `pnpm db:types` | Regenerate `lib/db/types.generated.ts` from the database |
 | `pnpm seed:generate` | Regenerate `supabase/seed.sql` from `supabase/seed/generate.ts` |
 
-Playwright starts its own server on port 3100 (`reuseExistingServer` is on). Run `pnpm db:reset` first so
-the seeded state is intact; the specs book, hand off, return and resolve real rows. Set `CHROMIUM_PATH` if
-Chromium is not on the default Playwright path.
+Playwright starts its own server on port 3100 (`reuseExistingServer` is on). It always forces
+`PAYMENTS_PROVIDER=mock` and `E2E_INSPECT=1` so money-path specs can read the ledger and the mock's
+recorded calls. Run `pnpm db:reset` first so the seeded state is intact; the specs book, hand off,
+return and resolve real rows. Set `CHROMIUM_PATH` if Chromium is not on the default Playwright path.
+
+CI (`.github/workflows/ci.yml`) runs the same gates against a Postgres 16 service: hermetic check,
+typecheck, lint, unit tests, `pnpm db:reset`, production build, then Playwright. Stripe is refused
+unless every live secret is present, and refused again in CI (hermetic first).
 
 ## Architecture
 

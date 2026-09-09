@@ -4,7 +4,7 @@ Living status file. Update it when a phase opens, closes, or a gate clears. Phas
 acceptance tests and stop conditions live in [`BUILD-PLAN.md`](BUILD-PLAN.md); this file records
 only where things stand.
 
-**Last updated:** 7 September 2026 · `main` @ `877e75f`
+**Last updated:** 9 September 2026 · Phase 5 gates on this branch
 
 ---
 
@@ -33,12 +33,13 @@ Phases 5 through 7 close exactly those three gaps, in that order.
 | 2 | Provider console (P01–P07) | **Done** | — |
 | 3 | Admin console (A01–A05) | **Done** | — |
 | 4 | Hardening: Stripe cards, webhook, cron jobs, realtime, accessibility, error states, docs | **Done** | — |
-| 5 | Trust the gates: CI, plus end-to-end coverage of the money paths | **Active — not started** | Nothing |
+| 5 | Trust the gates: CI, plus end-to-end coverage of the money paths | **Done** | — |
 | 6 | Notifications: transactional email, code delivery, lifecycle messages | **Active — not started** | Email domain, secrets store |
 | 7 | Real payouts: Stripe Connect onboarding, transfers, ledger reconciliation | **Active — not started** | Stripe account, legal entity and terms |
 | 8 | Pilot readiness: legal pages, identity vendor, self-serve onboarding, observability | **Parked** | Scope after Phase 7 closes |
 
-Phases 0–4 shipped in [#1](https://github.com/nsheinbe/fab-rent/pull/1), one commit each.
+Phases 0–4 shipped in [#1](https://github.com/nsheinbe/fab-rent/pull/1), one commit each. Phase 5 is
+this PR: GitHub Actions plus hermetic money-path e2e (cancel refund, claim capture, declined card).
 
 ---
 
@@ -58,17 +59,21 @@ Phases 0–4 shipped in [#1](https://github.com/nsheinbe/fab-rent/pull/1), one c
 
 ## Verification
 
-Last full run: 6 September 2026, on `fc381e4`, locally.
+Phase 5 landed the gates. They run on every pull request and on `main` via `.github/workflows/ci.yml`
+(Postgres 16 service, hermetic mock payments). A broken pricing vector fails the unit-test job under
+its `describe` name (`vector 1 — pickup, no extras`, …).
 
 | Gate | Result |
 | --- | --- |
-| Typecheck | Pass |
-| Lint | Pass, two image warnings on deliberate raw tags for user uploads |
-| Unit tests | 35 pass across pricing, booking state and listing checks |
-| Production build | Pass |
-| End to end | 4 pass, 2 skipped by design: renter at 390 and 1280, provider mobile, admin desktop |
+| Hermetic payments | Fail-closed without live Stripe secrets; CI refuses Stripe unless `HERMETIC=0` |
+| Typecheck | `pnpm typecheck` |
+| Lint | `pnpm lint` |
+| Unit tests | Pricing vectors, booking state, listing checks, mock recording, fail-closed Stripe |
+| Production build | `pnpm build` |
+| End to end | Existing happy paths, plus cancel-in-fee-window, accept-claim capture, declined checkout |
 
-This ran on one machine. Phase 5 exists to make that sentence untrue.
+Money-path specs assert the ledger identity (`net = gross + commission + adjustment`) and the mock
+provider's recorded calls, not only the screen. They do not call live Stripe.
 
 ---
 

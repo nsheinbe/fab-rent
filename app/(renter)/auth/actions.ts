@@ -145,7 +145,7 @@ export async function demoAccounts() {
       .selectFrom("profiles as p")
       .leftJoin("staff as s", "s.profile_id", "p.id")
       .select((eb) => ["p.id", "p.name", "p.email", "p.role", "p.is_business", "s.role as staff_role", eb.selectFrom("provider_members as pm").innerJoin("providers as pr", "pr.id", "pm.provider_id").select("pr.name").whereRef("pm.profile_id", "=", "p.id").limit(1).as("provider_name")])
-      .where("p.email", "in", ["priya.nair@example.com", "jonas.k@example.com", "elena.v@example.com", "dana@northlandstoolhire.example.com", "femi@saltwaymarine.example.com", "tomas.r@example.com", "ines@fab.rent", "ola@fab.rent"])
+      .where("p.email", "in", ["priya.nair@example.com", "jonas.k@example.com", "elena.v@example.com", "marcus.l@example.com", "dana@northlandstoolhire.example.com", "femi@saltwaymarine.example.com", "tomas.r@example.com", "ines@fab.rent", "ola@fab.rent"])
       .orderBy("p.role")
       .execute(),
   );

@@ -153,8 +153,8 @@ export function ClaimResponse({ bookingRef, claim, holdCents }: { bookingRef: st
         <p className="text-[12px] text-text-3">Accepting captures {formatMoney(Math.min(claim.amount_cents, holdCents))} of your {formatMoney(holdCents, { whole: true })} hold and releases the rest. Disputing sends both sides&apos; photos to fab.rent support.{claim.renter_respond_by ? " Reply before the deadline or the claim is upheld." : ""}</p>
       </div>
       <div className="grid grid-cols-2 gap-2 border-t border-border bg-paper px-4 py-3">
-        <Button size="md" variant="secondary" onClick={() => act(false)} loading={pending}>Dispute</Button>
-        <Button size="md" onClick={() => act(true)} loading={pending}>Accept</Button>
+        <Button size="md" variant="secondary" onClick={() => act(false)} loading={pending} data-testid="dispute-claim">Dispute</Button>
+        <Button size="md" onClick={() => act(true)} loading={pending} data-testid="accept-claim">Accept</Button>
       </div>
     </div>
   );
