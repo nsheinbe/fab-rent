@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { assertHermeticPayments, e2eInspectEnabled, missingStripeSecrets } from "@/lib/payments/hermetic";
 import { MockPaymentProvider } from "@/lib/payments/mock";
 import { getPaymentProvider, resetPaymentProviderForTests } from "@/lib/payments";
-import { isPaymentError, PaymentError } from "@/lib/payments/types";
+import { isPaymentError } from "@/lib/payments/types";
 
 const method = { id: "pm", provider_ref: null, label: "Visa •••• 4242" };
 const declined = { id: "pm-bad", provider_ref: null, label: "Visa •••• 0000" };
