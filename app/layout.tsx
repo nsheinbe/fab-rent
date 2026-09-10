@@ -18,9 +18,9 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: { default: "fab.rent — rent nearby", template: "%s · fab.rent" },
+  title: { default: "Fab.Rent — American manufacturing", template: "%s · fab.rent" },
   description:
-    "Premium rental marketplace for equipment, tools and event supplies in Port Maren.",
+    "Find American manufacturers for custom parts, finished products, and production runs. Explore capabilities and prepare a quote request.",
   icons: { icon: "/icon.svg" },
 };
 
@@ -28,7 +28,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#f6f3ec",
+  themeColor: "#294a38",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

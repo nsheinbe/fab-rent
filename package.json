@@ -16,7 +16,8 @@
     "db:reset": "tsx scripts/db-reset.ts",
     "db:types": "tsx scripts/db-types.ts",
     "seed:generate": "tsx supabase/seed/generate.ts",
-    "check": "pnpm ci:hermetic && pnpm typecheck && pnpm lint && pnpm test"
+    "check": "pnpm ci:hermetic && pnpm typecheck && pnpm lint && pnpm test",
+    "build:preview": "node scripts/build-preview.mjs"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "^1.3.3",

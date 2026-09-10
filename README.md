@@ -1,4 +1,14 @@
-# fab.rent
+# Fab.Rent — American manufacturing
+
+The homepage now presents a manufacturing and sourcing marketplace: search by capability, product, material, or location; inspect manufacturer profiles; shortlist and compare suppliers; prepare a request for quote. See [the redesign scope](MANUFACTURING-REDESIGN.md).
+
+**This is an interactive UI/UX prototype.** Six fictional suppliers and AI-generated catalog illustrations demonstrate the design. RFQs and manufacturer profiles download as text drafts; nothing is sent or published. Shortlists are stored only in the current browser. Draft form entries last only in the current tab.
+
+Run `pnpm dev` for the Next.js app, or `pnpm build:preview` to produce a standalone design preview in `dist/`. The preview uses the same React components and styling as the app and requires no database. Sites hosts only this static manufacturing preview, not the retained rental back end.
+
+The original rental homepage is preserved at `/rental-home`; existing rental, provider, admin, payment, and database flows remain available under their established routes. They have **not** been converted into manufacturing transactions.
+
+## Legacy rental application reference
 
 **Premium rental marketplace for equipment, tools and event supplies.**
 
