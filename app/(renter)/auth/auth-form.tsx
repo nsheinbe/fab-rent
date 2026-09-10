@@ -9,7 +9,7 @@ import { demoSignIn, oauthSignIn, sendOtp, verifyOtp } from "./actions";
 export function AuthForm({ next, error, demo, accounts }: { next: string; error?: string; demo: boolean; accounts: Array<{ id: string; name: string; email: string; role: string }> }) {
   const [mode, setMode] = useState<"buttons" | "otp" | "accounts">("buttons");
   const [identifier, setIdentifier] = useState("");
-  const [sent, setSent] = useState<{ identifier: string; demoCode: string | null } | null>(null);
+  const [sent, setSent] = useState<{ identifier: string } | null>(null);
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
   const [err, setErr] = useState<string | null>(error === "unknown" ? "We couldn't find that account." : error === "oauth" ? "Sign-in was cancelled. Try again." : null);
@@ -22,7 +22,7 @@ export function AuthForm({ next, error, demo, accounts }: { next: string; error?
       fd.set("identifier", identifier);
       const r = await sendOtp(fd);
       if (!r.ok) setErr(r.error);
-      else setSent({ identifier: r.identifier, demoCode: r.demoCode });
+      else setSent({ identifier: r.identifier });
     });
   const verify = () =>
     start(async () => {
@@ -65,7 +65,7 @@ export function AuthForm({ next, error, demo, accounts }: { next: string; error?
             </>
           ) : (
             <>
-              <div className="text-[13px] text-text-2">We sent a 6-digit code to <b className="text-charcoal">{sent.identifier}</b>.{sent.demoCode && <> <span className="rounded-[6px] bg-warn-bg px-1.5 py-0.5 text-[12px] font-semibold text-warn-text">Demo · your code is <span className="t-mono" data-testid="demo-otp">{sent.demoCode}</span></span></>}</div>
+              <div className="text-[13px] text-text-2" data-testid="otp-sent">We sent a 6-digit code to <b className="text-charcoal">{sent.identifier}</b>. It expires in 10 minutes.{demo && <> <span className="rounded-[6px] bg-warn-bg px-1.5 py-0.5 text-[12px] font-semibold text-warn-text">Demo · the code is printed in the server console</span></>}</div>
               <Field label="Code" id="code">
                 <Input id="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="123456" mono className="tracking-[.2em]" />
               </Field>

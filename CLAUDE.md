@@ -11,6 +11,7 @@ Premium rental marketplace for equipment, tools and event supplies (demo market:
 - **Radix UI** primitives (dialog, popover, select, tabs, slider, switch, checkbox, radio, toast) under a small in-repo component library. **Zod 4** for every input. **date-fns / date-fns-tz**. **MapLibre GL** for maps (falls back to the design's "Map tiles · demo" pattern when tiles can't load). **pdf-lib** for receipts. **Vitest** (unit) + **Playwright** (e2e, 390 & 1280).
 - Payments: `PaymentProvider` interface (`authorize`, `capture`, `charge`, `release`, `refund`) with `MockPaymentProvider` (default, deterministic) and `StripePaymentProvider` behind `PAYMENTS_PROVIDER=stripe` (PaymentIntents, `capture_method: 'manual'` for holds). A hold is never modelled as a charge.
 - ID verification: `IdVerificationProvider` interface with a mock that flips `id_verified` after a fake 2 s check.
+- Notifications: `NotificationProvider` interface (`send`) with `ConsoleNotificationProvider` (default; logs and records, never touches the network) and `ResendNotificationProvider` behind `NOTIFICATIONS_PROVIDER=resend` (fail-closed without `RESEND_API_KEY` + `NOTIFICATIONS_FROM`; refused in CI unless `HERMETIC=0`). Every message is a `notification_deliveries` row first (transactional outbox, unique dedupe key), sent after the transaction commits.
 
 ## Folder layout
 
@@ -32,7 +33,9 @@ lib/booking-state  transitionBooking() — the only way a booking status changes
 lib/listing-checks automated listing checks + review routing
 lib/payments       PaymentProvider + Mock + Stripe
 lib/auth           actor resolution, demo/supabase auth providers, withActor()
-lib/db             Kysely client, generated types, query helpers
+lib/db             Kysely client, generated types, query helpers, onCommit() hooks
+lib/notifications  NotificationProvider + console/Resend adapters, catalogue (who is told what), templates, outbox, event hooks
+lib/payouts        markPayoutPaid() — the one writer of payouts.status = paid (ops today, Phase 7 transfers later)
 lib/storage        Supabase Storage / local disk adapters
 lib/settings       MarketplaceConfig schema, live-config loader
 lib/time           now() (honours DEMO_NOW), market time zone helpers
@@ -53,6 +56,7 @@ scripts/             db-reset, db-types
 - `now()` from `lib/time` returns `DEMO_NOW` (market-local ISO) when set, real time otherwise. The seed is generated relative to the same anchor.
 - Status colours and copy come from the single `bookingStatus` map in `lib/booking-state/status.ts`. Never inline a pill colour.
 - No hard-coded fee, tax, hold, waiver, cancellation, SLA or payout numbers in components — always from the live settings version (or the booking's `price_snapshot` / `settings_version`).
+- Anything a person is told about happens through `lib/notifications` (`notifyBookingTransition` runs inside `transitionBooking`; checkout, claims, extensions, listing review and payouts call their own hook). Never call the provider directly from an action; never send inside a transaction — the outbox sends after commit.
 - Copy is the design's copy. Where the design shows a demo value, it is seed data, not a string constant.
 - Every list has loading, empty and error states.
 - DM Mono for booking refs, serials and amounts inside tables.
@@ -105,6 +109,28 @@ Statuses (the 11 pills, in order): `requested · confirmed · ready_for_pickup �
 
 Hold auto-release: 3 business days after `returned_at` when no open claim. Card authorisations expire after ~7 days; the admin dispute view shows expiry and offers "extend".
 
+## Notifications (Phase 6)
+
+One message per affected party per transition, from `TRANSITION_NOTIFICATIONS` in `lib/notifications/catalogue.ts`:
+
+| event | renter | provider |
+|---|---|---|
+| `instant_confirm` | booking_confirmed (receipt) | booking_confirmed (new booking) |
+| `provider_approve` | booking_confirmed | — |
+| `provider_decline` | booking_declined (refund) | — |
+| `renter_cancel` | booking_cancelled (refund) | booking_cancelled (kept / refunded) |
+| `provider_cancel` | booking_cancelled (refund + credit) | — |
+| `mark_prepared` / `dispatch` | ready_for_pickup / out_for_delivery | — |
+| `handoff_complete` | handoff_complete (hold placed) | — |
+| `return_window_open` | return_due | return_due |
+| `grace_elapsed` | overdue | overdue |
+| `return_checkin_start` | — | — |
+| `return_no_claim` | return_complete (hold released) | — |
+| `claim_accepted` / `claim_disputed` | claim_answered | claim_answered |
+| `admin_decision` | dispute_decided | dispute_decided |
+
+Outside the machine: `booking_requested` (checkout of a non-instant booking → renter receipt + provider request), `claim_raised` (return check-in with claims → renter), `extension_requested` / `extension_decided`, `handoff_reminder` (job, the day before), `payout_sent`, `payout_reminder` (admin "Remind"), `listing_reviewed` (A03 decision), `otp_code` (sign-in). Optional (per-profile opt-out on `/profile` and `/provider/settings`): ready_for_pickup, out_for_delivery, handoff_reminder, return_due. Everything that moves money, holds, claims, disputes or payouts is always sent. Delivery records: `notification_deliveries` (queued → sending → sent | failed | skipped with reason), retried by `/api/cron/notifications`.
+
 ## Running
 
 ```
@@ -112,9 +138,10 @@ cp .env.example .env.local
 pnpm install
 pnpm db:reset          # creates the DB, applies supabase/local + migrations + seed.sql (plain Postgres)
 pnpm dev               # http://localhost:3000  (DEMO_NOW freezes the clock at Sat 5 Sep 2026 10:00)
-pnpm check             # typecheck + lint + unit tests
+pnpm check             # hermetic gates + typecheck + lint + unit tests
 pnpm test:e2e          # playwright (390 and 1280)
 ```
+Notifications default to the console adapter (`NOTIFICATIONS_PROVIDER=console`): sign-in codes and every lifecycle message print to the server console and land in `notification_deliveries`. `NOTIFICATIONS_PROVIDER=resend` needs `RESEND_API_KEY`, `NOTIFICATIONS_FROM` (a sender on an authenticated domain) and `APP_URL` for links.
 With the Supabase CLI: `supabase start && supabase db reset` applies the same migrations + seed; set `DATABASE_URL` to the local Supabase Postgres and the `NEXT_PUBLIC_SUPABASE_*` keys.
 
 ## Assumptions & deviations (running list)
@@ -163,6 +190,12 @@ With the Supabase CLI: `supabase start && supabase db reset` applies the same mi
 42. **Accessibility**: skip link to `#main` (the renter shell wrapper and the console `<main>`), `prefers-reduced-motion` disables the sheet/toast/skeleton animations, dialogs and sheets are Radix (focus trap, escape, labelled), tables use real `<table>` semantics, every icon-only control has an `aria-label`, toasts are `aria-live`.
 43. **Unread badge**: the renter layout computes the unread count once per request (`getUnreadCount`) and provides it through a small client context to the desktop "Inbox" link and the mobile tab bar; `router.refresh()` after sending/reading keeps it current.
 44. **Deferred from the brief**: second-approver publishing for settings (33), drag-to-reassign (11/28), per-category return templates (30), search analytics (31), provider onboarding/invite flows (35), Supabase Storage image hashing for duplicate-photo checks (29). Each has a working single-step stand-in.
+45. **Sign-in codes are never rendered in the page.** Without Supabase, `sendOtp` issues one code per request and delivers it through the notification provider: the console adapter prints it to the server console (demo), Resend emails it. Seeded demo accounts keep the account picker. Codes by text message are refused with a clear message (SMS is out of scope); a code whose email failed to send is deleted so it can never be used. E2E reads the code back through the fail-closed inspect API (`?otp=`), never the DOM.
+46. **Transactional outbox for email.** `enqueueNotification()` writes the delivery row inside the caller's transaction (system-owned, via `asSystem`) and registers an `onCommit` hook in `lib/db` that dispatches after commit — a rolled-back transition never emails anyone, and a delivery that fails is a `failed` row with the error, not a lost message. The unique `dedupe_key` (`template:subject:party`) is what makes replays inert. Sign-in codes bypass the outbox (`sendAndRecord`) so the person is told immediately when the email could not be sent; their body is never stored.
+47. **Provider recipient = the provider's owner profile.** "One notification per affected party" counts the business as one party; staff members see everything in the console. Preferences are per profile, so the owner's switches apply. Recipients without an email get a `skipped · no_email` row.
+48. **Optional vs. always-sent** is a per-template flag in the catalogue, not a category setting: only the four reminder-type messages (ready for pickup, out for delivery, handoff reminder, return due) can be switched off. Receipts, refunds, holds, overdue, claims, disputes, extensions, payouts and listing decisions always go (BUILD-PLAN: "money and dispute messages still go").
+49. **Payout sent** is triggered by `markPayoutPaid()` — in the pilot ops records an off-platform payout from Admin → Payouts → "Mark paid" (ledger entries → paid, a `payout` ledger row, the provider is told). Phase 7 calls the same function from the transfer result. No money moves in Phase 6. The admin "Remind" button on paused/failed payouts now really emails the provider (once per payout per day).
+50. **No design frames for email.** Templates are plain text first (one paragraph per line, "·" separators, amounts to the cent, market time), wrapped in a minimal HTML shell; the preference cards on `/profile` and `/provider/settings` follow the existing card style. Extras beyond the phase list that the design implies and the machine makes cheap: cancellations (both directions), extension requested/decided, listing review decisions, payout reminders. Not done: notifying providers ahead of a fee change (A05 checkbox is still a log line), chargeback alerts to admins, SMS/push.
 
 ## Design reconciliation (frame → route)
 

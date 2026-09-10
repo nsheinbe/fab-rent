@@ -5,6 +5,7 @@ import { getPaymentProvider } from "@/lib/payments";
 import { getConfigForVersion } from "@/lib/settings/live";
 import { providerCancellation, providerCommission, renterCancellation, type CancellationResult } from "@/lib/pricing";
 import type { CancellationPolicy, MarketplaceConfig } from "@/lib/settings/schema";
+import { notifyBookingTransition } from "@/lib/notifications/events";
 import { nextStatus, TransitionError, type ActorRole, type BookingEvent } from "./machine";
 import type { BookingStatus } from "./status";
 
@@ -35,7 +36,8 @@ export interface TransitionResult {
 /**
  * The only way a booking's status changes. Validates against the machine, applies the money side
  * effects (refund on cancel, hold placement at handoff, hold release/capture on completion),
- * writes the row and a `booking_events` entry, all inside the caller's RLS-scoped transaction.
+ * writes the row and a `booking_events` entry, all inside the caller's RLS-scoped transaction,
+ * then records the notification each affected party is owed (sent after commit, never twice).
  */
 export async function transitionBooking(trx: Trx, bookingId: string, event: BookingEvent, actor: TransitionActor, opts: TransitionOptions = {}): Promise<TransitionResult> {
   const b = await trx.selectFrom("bookings").selectAll().where("id", "=", bookingId).forUpdate().executeTakeFirst();
@@ -67,7 +69,7 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
       }
       await applyCancellationLedger(trx, { id: b.id, ref: b.ref, provider_id: b.provider_id }, result, config, at);
       Object.assign(patch, { cancelled_at: at, cancelled_by: event === "renter_cancel" ? "renter" : "provider", cancellation_snapshot: result, payment_refs: refs, hold_status: "none" });
-      Object.assign(payload, { refunded_cents: result.refunded_cents, kept_rental_cents: result.kept_rental_cents, credit_cents: result.credit_cents, keep_pct: result.keep_pct });
+      Object.assign(payload, { refunded_cents: result.refunded_cents, kept_rental_cents: result.kept_rental_cents, credit_cents: result.credit_cents, keep_pct: result.keep_pct, cancelled_by: event === "renter_cancel" ? "renter" : "provider", policy_name: policy.name });
       break;
     }
     case "handoff_complete": {
@@ -136,6 +138,8 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
     .values({ booking_id: b.id, type: event, actor_role: actor.role, actor_id: actor.id, actor_name: actor.name, from_status: from, to_status: to, payload: JSON.stringify(payload), occurred_at: at })
     .returning("id")
     .executeTakeFirstOrThrow();
+  // one message per affected party, recorded now and sent after this transaction commits (Phase 6)
+  await notifyBookingTransition(trx, { bookingId: b.id, event, from, to, payload, at });
   return { from, to, bookingId: b.id, eventId: ev.id };
 }
 

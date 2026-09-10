@@ -14,6 +14,8 @@ import { getIdVerificationProvider } from "@/lib/id-verification";
 import { marketLocal, now } from "@/lib/time";
 import { asSystem, sql } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
+import { notifyBookingRequested, notifyExtensionRequested } from "@/lib/notifications/events";
+import { isTemplateKey, notificationCatalogue, type NotificationPrefs } from "@/lib/notifications/catalogue";
 
 export type ActionResult<T = undefined> = { ok: true; data: T } | { ok: false; error: string; code?: string };
 
@@ -188,6 +190,8 @@ export async function checkout(input: z.input<typeof checkoutSchema>): Promise<A
     await recordBookingEvent(trx, booking.id, "booking_created", who, { instant: eligible });
     await recordBookingEvent(trx, booking.id, "payment_charged", { role: "system", id: null, name: "fab.rent" }, { cents: quote.charged_cents, method: methodLabel });
     if (eligible) await transitionBooking(trx, booking.id, "instant_confirm", { role: "system", id: null, name: "fab.rent" });
+    // instant bookings are announced by the confirm transition; a request gets its own receipt + the provider's request
+    else await notifyBookingRequested(trx, booking.id);
     // provider ledger entry (pending until return check-in) — system-owned, renters can't write the ledger
     await asSystem(trx, (sys) => sys.insertInto("ledger_entries").values({ provider_id: listing.provider.id, booking_id: booking.id, entry_date: sql`(${start.toISOString()}::timestamptz at time zone ${tz})::date`, type: "rental", description: `${listing.title} · ${who.name}${p.fulfillment === "delivery" ? " · delivery" : ""}`, gross_cents: quote.provider.gross_cents, commission_cents: -quote.provider.commission_cents, net_cents: quote.provider.payout_cents, status: "pending" }).execute());
     // conversation with the provider, seeded with the delivery/pickup confirmation
@@ -196,10 +200,7 @@ export async function checkout(input: z.input<typeof checkoutSchema>): Promise<A
     await trx.deleteFrom("booking_drafts").where("id", "=", draft.id).execute();
     return { ok: true, data: { ref: booking.ref } };
   });
-  if (result.ok) {
-    revalidatePath("/rentals");
-    console.info(`[email] receipt for ${result.data.ref} → ${actor.profile?.email ?? "renter"}`);
-  }
+  if (result.ok) revalidatePath("/rentals");
   return result;
 }
 
@@ -260,6 +261,21 @@ export async function updateContact(input: { name: string; phone: string }): Pro
   return { ok: true, data: undefined };
 }
 
+/** Per-message opt-outs (profile → Notifications). Only optional templates can be switched off; money and dispute messages always go. */
+export async function updateNotificationPrefs(input: Record<string, boolean>): Promise<ActionResult<{ prefs: NotificationPrefs }>> {
+  const actor = await requireUser();
+  const prefs: NotificationPrefs = {};
+  for (const [k, v] of Object.entries(input ?? {})) {
+    if (!isTemplateKey(k) || typeof v !== "boolean") continue;
+    if (!notificationCatalogue[k].optional && v === false) return { ok: false, error: `${notificationCatalogue[k].label} messages are always sent` };
+    if (v === false) prefs[k] = false;
+  }
+  await withActor((trx) => trx.updateTable("profiles").set({ notification_prefs: JSON.stringify(prefs) }).where("id", "=", actor.userId!).execute());
+  revalidatePath("/profile");
+  revalidatePath("/provider/settings");
+  return { ok: true, data: { prefs } };
+}
+
 export async function toggleSaved(listingId: string): Promise<ActionResult<{ saved: boolean }>> {
   const actor = await getActor();
   if (!actor.userId) return { ok: false, error: "Sign in to save listings", code: "unauthenticated" };
@@ -310,8 +326,9 @@ export async function requestExtension(ref: string, extraDays: number): Promise<
     const q = quoteExtension(days, b.day_cents, b.qty, config);
     const existing = await trx.selectFrom("extension_requests").select("id").where("booking_id", "=", b.id).where("status", "=", "requested").executeTakeFirst();
     if (existing) await trx.updateTable("extension_requests").set({ status: "cancelled" }).where("id", "=", existing.id).execute();
-    await trx.insertInto("extension_requests").values({ booking_id: b.id, new_end_at: newEnd, extra_days: days, amount_cents: q.charged_cents, quote: JSON.stringify(q), status: "requested" }).execute();
+    const x = await trx.insertInto("extension_requests").values({ booking_id: b.id, new_end_at: newEnd, extra_days: days, amount_cents: q.charged_cents, quote: JSON.stringify(q), status: "requested" }).returning("id").executeTakeFirstOrThrow();
     await recordBookingEvent(trx, b.id, "extension_requested", { role: "renter", id: actor.userId, name: actor.profile?.name ?? "Renter" }, { extra_days: days, new_end_at: newEnd.toISOString(), cents: q.charged_cents });
+    await notifyExtensionRequested(trx, b.id, { id: x.id, extra_days: days, new_end_at: newEnd, amount_cents: q.charged_cents });
     return { ok: true as const, data: { amount_cents: q.charged_cents } };
   });
   revalidatePath(`/rentals/${ref}`);

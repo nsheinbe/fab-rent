@@ -11,6 +11,7 @@ import { pctOf } from "@/lib/pricing/money";
 import { lateFee, quoteExtension } from "@/lib/pricing";
 import { runListingChecks, routeForReview, listingQuality, type ListingForChecks } from "@/lib/listing-checks";
 import { formatDateTime, formatMoney } from "@/lib/format";
+import { notifyClaimRaised, notifyExtensionDecided } from "@/lib/notifications/events";
 import type { ActionResult } from "@/app/(renter)/actions";
 
 const providerActor = (a: { userId: string | null; profile: { name: string } | null }): TransitionActor => ({ role: "provider", id: a.userId, name: a.profile?.name ?? "Provider" });
@@ -227,6 +228,7 @@ export async function approveExtension(ref: string): Promise<ActionResult<{ char
     await recordBookingEvent(trx, b.id, "extension_approved", providerActor(actor), { extra_days: x.extra_days, new_end_at: x.new_end_at.toISOString(), cents: q.charged_cents });
     await recordBookingEvent(trx, b.id, "payment_charged", { role: "system", id: null, name: "fab.rent" }, { cents: q.charged_cents, method: b.payment_method_label, kind: "extension" });
     await systemMessage(trx, b.id, `Extension approved · new return ${formatDateTime(x.new_end_at)}${collect ? ` · collection ${collect.start}–${collect.end}` : ""} · ${formatMoney(q.charged_cents)} charged`);
+    await notifyExtensionDecided(trx, b.id, { id: x.id, decision: "approved", extra_days: x.extra_days, new_end_at: x.new_end_at, amount_cents: q.charged_cents });
     return { ok: true as const, data: { charged_cents: q.charged_cents } };
   });
   bump(ref);
@@ -238,11 +240,12 @@ export async function declineExtension(ref: string): Promise<ActionResult> {
   const r = await withActor(async (trx) => {
     const b = await loadBooking(trx, actor.provider.id, ref);
     if (!b) return { ok: false as const, error: "Booking not found" };
-    const x = await trx.selectFrom("extension_requests").select(["id", "extra_days"]).where("booking_id", "=", b.id).where("status", "=", "requested").executeTakeFirst();
+    const x = await trx.selectFrom("extension_requests").select(["id", "extra_days", "new_end_at", "amount_cents"]).where("booking_id", "=", b.id).where("status", "=", "requested").executeTakeFirst();
     if (!x) return { ok: false as const, error: "No pending extension" };
     await trx.updateTable("extension_requests").set({ status: "declined", decided_at: now(), decided_by: actor.userId }).where("id", "=", x.id).execute();
     await recordBookingEvent(trx, b.id, "extension_declined", providerActor(actor), { extra_days: x.extra_days });
     await systemMessage(trx, b.id, `Extension declined · original return time stands (${formatDateTime(b.end_at)})`);
+    await notifyExtensionDecided(trx, b.id, { id: x.id, decision: "declined", extra_days: x.extra_days, new_end_at: x.new_end_at, amount_cents: x.amount_cents });
     return { ok: true as const, data: undefined };
   });
   bump(ref);
@@ -383,6 +386,7 @@ export async function completeReturn(ref: string, input: z.input<typeof returnSc
       await recordBookingEvent(trx, b.id, "claim_raised", who, { cents: claimTotal, items: parsed.data.claims.length, respond_by: respondBy.toISOString() }, at);
       await asSystem(trx, (sys) => sys.updateTable("ledger_entries").set({ status: "inspecting" }).where("booking_id", "=", b.id).where("type", "=", "rental").execute());
       await systemMessage(trx, b.id, `Return checked in · ${formatMoney(claimTotal)} claim against your ${formatMoney(b.hold_cents, { whole: true })} hold — accept or dispute within ${config.holds.renter_response_hours} h`);
+      await notifyClaimRaised(trx, b.id);
       return { ok: true as const, data: { status: "inspecting", claim_cents: claimTotal } };
     }
     try {

@@ -35,6 +35,8 @@ jobs:
       CRON_SECRET: ci-cron-secret
       DEMO_NOW: "2026-09-05T10:00:00"
       PAYMENTS_PROVIDER: mock
+      NOTIFICATIONS_PROVIDER: console
+      APP_URL: http://localhost:3100
       E2E_INSPECT: "1"
       NEXT_PUBLIC_DISABLE_MAPLIBRE: "1"
     steps:
@@ -50,8 +52,8 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Fail closed without live Stripe secrets
-        run: pnpm exec tsx scripts/assert-hermetic-payments.ts
+      - name: Fail closed without live Stripe or email secrets
+        run: pnpm ci:hermetic
 
       - name: Typecheck
         run: pnpm typecheck

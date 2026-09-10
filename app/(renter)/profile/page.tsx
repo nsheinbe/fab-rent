@@ -10,6 +10,8 @@ import { Icon, type IconName } from "@/components/ui/icons";
 import { KeyValueList } from "@/components/ui/side-panel";
 import { Button } from "@/components/ui/button";
 import { signOut } from "@/app/(renter)/auth/actions";
+import { NotificationPrefsCard } from "@/components/domain/notification-prefs";
+import { parsePrefs } from "@/lib/notifications/catalogue";
 
 export const metadata: Metadata = { title: "Profile" };
 export const dynamic = "force-dynamic";
@@ -17,7 +19,7 @@ export const dynamic = "force-dynamic";
 export default async function ProfilePage() {
   const actor = await requireUserPage();
   const p = actor.profile!;
-  const [methods, row] = await withActor((trx) => Promise.all([getPaymentMethods(trx, actor.userId!), trx.selectFrom("profiles").select("joined_at").where("id", "=", actor.userId!).executeTakeFirst()]));
+  const [methods, row] = await withActor((trx) => Promise.all([getPaymentMethods(trx, actor.userId!), trx.selectFrom("profiles").select(["joined_at", "notification_prefs"]).where("id", "=", actor.userId!).executeTakeFirst()]));
   const joined = row?.joined_at ?? new Date();
   const user = { name: p.name };
   const links: Array<{ href: string; label: string; icon: IconName; meta?: string }> = [
@@ -52,6 +54,7 @@ export default async function ProfilePage() {
           )}
           <p className="mt-2 text-[12px] text-text-3">fab.rent stores only the brand, last four digits and expiry. Holds are authorizations, never charges.</p>
         </section>
+        <NotificationPrefsCard audience="renter" initial={parsePrefs(row?.notification_prefs)} email={p.email} />
         <section className="card-sm overflow-hidden">
           {links.map((l, i) => (
             <Link key={l.href} href={l.href} className={`flex items-center gap-3 px-3.5 py-3 text-charcoal no-underline hover:bg-ivory/60 ${i < links.length - 1 ? "border-b border-border" : ""}`}>
