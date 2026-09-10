@@ -12,6 +12,8 @@ import { formatMoney } from "@/lib/format";
 import type { ActionResult } from "@/app/(renter)/actions";
 import { diffConfigs } from "@/lib/settings/diff";
 import { extendHold } from "@/lib/jobs";
+import { markPayoutPaid } from "@/lib/payouts";
+import { notifyListingReviewed, notifyPayoutReminder } from "@/lib/notifications/events";
 
 type Staff = Actor & { staff: NonNullable<Actor["staff"]> };
 const shortName = (n: string) => { const [f, ...rest] = n.split(" "); return rest.length ? `${f} ${rest[rest.length - 1]![0]}.` : f!; };
@@ -95,7 +97,7 @@ export async function resolveDispute(code: string, input: z.input<typeof resolve
     const preview = previewDecision(parsed.data.decision as DisputeDecision, claimCents, b.hold_cents, parsed.data.partial_cents);
     const who = { role: "staff" as const, id: actor.userId, name: actor.profile?.name ?? "fab.rent support" };
     try {
-      if (b.status === "disputed") await transitionBooking(trx, b.id, "admin_decision", who, { captureCents: preview.charged_to_renter_cents, payload: { dispute: code, decision: parsed.data.decision, claim_cents: claimCents } });
+      if (b.status === "disputed") await transitionBooking(trx, b.id, "admin_decision", who, { captureCents: preview.charged_to_renter_cents, payload: { dispute: code, decision: parsed.data.decision, claim_cents: claimCents, reasoning: parsed.data.send_reasoning ? parsed.data.reasoning : null } });
     } catch (e) {
       return { ok: false as const, error: (e as Error).message };
     }
@@ -194,6 +196,7 @@ export async function decideListingReview(reviewId: string, input: z.input<typeo
     }
     await trx.updateTable("listing_reviews").set({ decision: d.decision, decided_at: now(), decided_by: actor.userId, message_to_provider: d.message ?? null, change_request: d.checklist ? JSON.stringify(d.checklist) : null, reject_reason: d.reject_reason ?? null, sla_paused: d.decision === "request_changes", sla_paused_at: d.decision === "request_changes" ? now() : null, assignee_staff_id: review.assignee_staff_id ?? actor.staff.id }).where("id", "=", review.id).execute();
     if (review.kind === "reported") await trx.updateTable("reports").set({ status: "resolved" }).where("listing_id", "=", l.id).where("status", "=", "open").execute();
+    await notifyListingReviewed(trx, review.id);
     await log(trx, actor, `${d.decision === "approve" ? "approved" : d.decision === "reject" ? "rejected" : "requested changes on"} ${l.title}`, { type: "listing_review", id: review.id, label: l.title });
     return { ok: true as const, data: { status } };
   });
@@ -280,22 +283,42 @@ export async function rollbackSettings(version: number): Promise<ActionResult> {
 
 /* ------------------------------------------------------------ payouts / reports */
 
-export async function payoutAction(payoutId: string, action: "retry" | "remind" | "release"): Promise<ActionResult> {
+/**
+ * Ops actions on a payout row. No money moves in Phase 6: retry/release change the row's status,
+ * "remind" emails the provider what is blocking the payout, and "mark_paid" records an off-platform
+ * payout (ledger entries → paid) and tells the provider. Phase 7 replaces mark_paid with the transfer result.
+ */
+export async function payoutAction(payoutId: string, action: "retry" | "remind" | "release" | "mark_paid"): Promise<ActionResult> {
   const actor = await requireStaff();
   if (!can(actor, "payouts")) return { ok: false, error: "Payouts permission required" };
-  await withActor(async (trx) => {
+  const r = await withActor(async (trx) => {
     const p = await trx.selectFrom("payouts as po").innerJoin("providers as pv", "pv.id", "po.provider_id").select(["po.id", "po.provider_id", "pv.name", "po.amount_cents"]).where("po.id", "=", payoutId).executeTakeFirstOrThrow();
     if (action === "retry") await trx.updateTable("payouts").set({ status: "scheduled", exception: null, exception_detail: "retry scheduled by ops", scheduled_for: new Date(Date.now() + 86_400_000) }).where("id", "=", p.id).execute();
     if (action === "release") {
       await trx.updateTable("payouts").set({ status: "scheduled", exception: null, exception_detail: null }).where("id", "=", p.id).execute();
       await trx.updateTable("providers").set({ payouts_paused: false, payouts_paused_reason: null }).where("id", "=", p.provider_id).execute();
     }
-    await trx.insertInto("internal_notes").values({ target_type: "provider", target_id: p.provider_id, author_id: actor.userId, author_name: shortName(actor.profile?.name ?? "Staff"), body: action === "remind" ? `Reminder sent about the paused payout (${formatMoney(p.amount_cents)}).` : action === "retry" ? `Payout ${formatMoney(p.amount_cents)} re-queued.` : `Payout hold released manually.` }).execute();
-    await log(trx, actor, `${action === "remind" ? "reminded" : action === "retry" ? "retried payout for" : "released payout for"} ${p.name}`, { type: "payout", id: p.id, label: p.name });
+    let note: string;
+    if (action === "remind") {
+      const sent = await notifyPayoutReminder(trx, p.id);
+      if (sent?.status === "deduped") return { ok: false as const, error: "Already reminded today" };
+      if (sent?.status === "skipped") return { ok: false as const, error: `Couldn't send: ${sent.reason === "no_email" ? "the owner has no email address" : "opted out"}` };
+      note = `Reminder sent about the paused payout (${formatMoney(p.amount_cents)}).`;
+    } else if (action === "mark_paid") {
+      const paid = await asSystem(trx, (sys) => markPayoutPaid(sys, p.id));
+      if (!paid.ok) return { ok: false as const, error: paid.error };
+      note = `Payout ${formatMoney(paid.amount_cents)} marked paid by ops (${paid.rental_count} ${paid.rental_count === 1 ? "rental" : "rentals"}); provider notified.`;
+    } else {
+      note = action === "retry" ? `Payout ${formatMoney(p.amount_cents)} re-queued.` : `Payout hold released manually.`;
+    }
+    await trx.insertInto("internal_notes").values({ target_type: "provider", target_id: p.provider_id, author_id: actor.userId, author_name: shortName(actor.profile?.name ?? "Staff"), body: note }).execute();
+    await log(trx, actor, `${action === "remind" ? "reminded" : action === "retry" ? "retried payout for" : action === "mark_paid" ? "marked payout paid for" : "released payout for"} ${p.name}`, { type: "payout", id: p.id, label: p.name });
+    return { ok: true as const, data: undefined };
   });
   revalidatePath("/admin/payouts");
   revalidatePath("/admin");
-  return { ok: true, data: undefined };
+  revalidatePath("/provider/earnings");
+  return r;
 }
 
 export async function resolveReport(reportId: string, status: "resolved" | "dismissed"): Promise<ActionResult> {

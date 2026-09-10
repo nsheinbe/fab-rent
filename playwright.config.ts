@@ -30,6 +30,8 @@ export default defineConfig({
       NEXT_PUBLIC_DISABLE_MAPLIBRE: process.env.NEXT_PUBLIC_DISABLE_MAPLIBRE ?? "1",
       // Hermetic: Playwright always drives the mock and exposes the inspect API. Never inherit live Stripe.
       PAYMENTS_PROVIDER: "mock",
+      NOTIFICATIONS_PROVIDER: "console",
+      APP_URL: baseURL,
       E2E_INSPECT: "1",
     },
   },

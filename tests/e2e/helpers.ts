@@ -6,15 +6,54 @@ export async function signInDemo(page: Page, email: string, next = "/") {
   await page.getByTestId(`demo-account-${email}`).click();
 }
 
+/** The one-time code is emailed (console adapter in e2e) and never rendered in the page: read it back through the inspect API. */
 export async function signInWithOtp(page: Page, email: string, name: string) {
   await page.getByRole("button", { name: "Continue with email or phone" }).click();
   await page.getByLabel("Email or phone").fill(email);
   await page.getByRole("button", { name: "Send code" }).click();
-  const code = (await page.getByTestId("demo-otp").textContent())?.trim();
+  await expect(page.getByTestId("otp-sent")).toContainText(email);
+  const code = await otpCode(page.request, email);
   expect(code).toMatch(/^\d{6}$/);
   await page.getByLabel("Code").fill(code!);
   await page.getByLabel("Your name").fill(name);
   await page.getByRole("button", { name: "Continue" }).click();
+}
+
+export async function otpCode(request: APIRequestContext, email: string): Promise<string | null> {
+  const res = await request.get(`/api/e2e/inspect?otp=${encodeURIComponent(email)}`);
+  expect(res.status(), "inspect API must be enabled (E2E_INSPECT=1, mock payments, console notifications)").toBe(200);
+  return ((await res.json()) as { code: string | null }).code;
+}
+
+export type Delivery = { id: string; template: string; party: string | null; status: string; reason: string | null; provider: string; recipient_email: string | null; subject: string | null; attempts: number; booking_id: string | null };
+
+export async function deliveries(request: APIRequestContext, query: { ref?: string; email?: string }): Promise<Delivery[]> {
+  const qs = new URLSearchParams();
+  if (query.ref) qs.set("ref", query.ref);
+  if (query.email) qs.set("email", query.email);
+  const res = await request.get(`/api/e2e/inspect?${qs}`);
+  expect(res.status()).toBe(200);
+  return ((await res.json()) as { deliveries?: Delivery[] }).deliveries ?? [];
+}
+
+/** Applies a booking transition as staff/system through the real transitionBooking (test-only route). */
+export async function transition(request: APIRequestContext, ref: string, event: string, opts: { captureCents?: number; at?: string } = {}) {
+  const res = await request.post("/api/e2e/inspect", { data: { action: "transition", ref, event, ...opts } });
+  const body = (await res.json()) as { from?: string; to?: string; deliveries?: Delivery[]; error?: string };
+  expect(res.status(), `transition ${event} on ${ref}: ${body.error ?? ""}`).toBe(200);
+  return body as { from: string; to: string; deliveries: Delivery[] };
+}
+
+export async function replayNotifications(request: APIRequestContext, ref: string, event: string) {
+  const res = await request.post("/api/e2e/inspect", { data: { action: "replay_notifications", ref, event } });
+  expect(res.status()).toBe(200);
+  return (await res.json()) as { results: Array<{ status: string }>; deliveries: Delivery[] };
+}
+
+export async function runJob(request: APIRequestContext, job: string, at?: string) {
+  const res = await request.post("/api/e2e/inspect", { data: { action: "run_job", job, at } });
+  expect(res.status()).toBe(200);
+  return (await res.json()) as Record<string, number | string>;
 }
 
 export type InspectPayload = {

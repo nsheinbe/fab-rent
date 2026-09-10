@@ -1,22 +1,12 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { deliveries, signInWithOtp } from "./helpers";
 
 /**
  * Renter happy path (brief §9, Phase 1): search → listing → book → sign in → pay → confirmation → rentals.
  * Runs against the seeded demo database on both projects (390 mobile, 1280 desktop).
+ * The sign-in code is emailed (console adapter here) and read back through the inspect API — never from the page.
  */
 const LISTING = /DeWalt DWE7491/;
-
-async function signInWithOtp(page: Page, email: string, name: string) {
-  await page.getByRole("button", { name: "Continue with email or phone" }).click();
-  await page.getByLabel("Email or phone").fill(email);
-  await page.getByRole("button", { name: "Send code" }).click();
-  // demo mode shows the one-time code inline (real delivery is out of scope)
-  const code = (await page.getByTestId("demo-otp").textContent())?.trim();
-  expect(code).toMatch(/^\d{6}$/);
-  await page.getByLabel("Code").fill(code!);
-  await page.getByLabel("Your name").fill(name);
-  await page.getByRole("button", { name: "Continue" }).click();
-}
 
 test("search → listing → book → sign in → pay → confirmation → rentals", async ({ page }, testInfo) => {
   const email = `e2e-${testInfo.project.name}-${Date.now().toString(36)}@example.com`;
@@ -77,4 +67,13 @@ test("search → listing → book → sign in → pay → confirmation → renta
   const ics = await page.request.get(`/api/bookings/${ref}/calendar.ics`);
   expect(ics.status()).toBe(200);
   expect(await ics.text()).toContain("BEGIN:VEVENT");
+
+  // the receipt promised on the confirmation page went out: one message to the renter, one to the provider
+  const sent = await deliveries(page.request, { ref });
+  const renterMail = sent.filter((d) => d.party === "renter");
+  const providerMail = sent.filter((d) => d.party === "provider");
+  expect(renterMail.map((d) => d.template)).toEqual([expect.stringMatching(/^booking_(requested|confirmed)$/)]);
+  expect(providerMail.map((d) => d.template)).toEqual([expect.stringMatching(/^booking_(requested|confirmed)$/)]);
+  for (const d of sent) expect(d, d.template).toMatchObject({ status: "sent", provider: "console", recipient_email: expect.stringContaining("@") });
+  expect(renterMail[0]!.recipient_email).toBe(email);
 });

@@ -1,9 +1,11 @@
 import "server-only";
 import { sql, type Trx } from "@/lib/db";
-import { now, addBusinessDays } from "@/lib/time";
+import { now, addBusinessDays, addHours } from "@/lib/time";
 import { getLiveConfig } from "@/lib/settings/live";
 import { runHoldReleaseJob, runReturnJobs, recordBookingEvent } from "@/lib/booking-state/transition";
 import { getPaymentProvider } from "@/lib/payments";
+import { notifyHandoffReminder } from "@/lib/notifications/events";
+import { runNotificationRetryJob } from "@/lib/notifications/outbox";
 
 export { runHoldReleaseJob, runReturnJobs };
 
@@ -67,7 +69,18 @@ export async function extendHold(trx: Trx, bookingId: string, at: Date = now()):
   return { ok: true, expires_at: auth.expires_at };
 }
 
-export type JobName = "returns" | "holds" | "claims" | "reviews" | "hold-expiry" | "all";
+/** Handoff reminders the day before a pickup or delivery. Idempotent: the outbox keeps one per booking per party. */
+export async function runHandoffReminderJob(trx: Trx, at: Date = now()): Promise<number> {
+  const rows = await trx.selectFrom("bookings").select("id").where("status", "in", ["confirmed", "ready_for_pickup", "out_for_delivery"]).where("start_at", ">", at).where("start_at", "<=", addHours(at, 24)).orderBy("start_at").execute();
+  let reminded = 0;
+  for (const b of rows) {
+    const r = await notifyHandoffReminder(trx, b.id);
+    if (r.some((x) => x.status === "queued")) reminded++;
+  }
+  return reminded;
+}
+
+export type JobName = "returns" | "holds" | "claims" | "reviews" | "hold-expiry" | "reminders" | "notifications" | "all";
 
 export async function runJob(trx: Trx, job: JobName, at: Date = now()): Promise<Record<string, number>> {
   switch (job) {
@@ -83,9 +96,13 @@ export async function runJob(trx: Trx, job: JobName, at: Date = now()): Promise<
       return { published: await runReviewPublishJob(trx, at) };
     case "hold-expiry":
       return { expired: await runHoldExpiryJob(trx, at) };
+    case "reminders":
+      return { reminded: await runHandoffReminderJob(trx, at) };
+    case "notifications":
+      return { retried: (await runNotificationRetryJob(trx, at)).retried };
     case "all": {
       const r = await runReturnJobs(trx, at);
-      return { return_due: r.return_due, overdue: r.overdue, released: await runHoldReleaseJob(trx, at), escalated: await runClaimEscalationJob(trx, at), published: await runReviewPublishJob(trx, at), expired: await runHoldExpiryJob(trx, at) };
+      return { return_due: r.return_due, overdue: r.overdue, released: await runHoldReleaseJob(trx, at), escalated: await runClaimEscalationJob(trx, at), published: await runReviewPublishJob(trx, at), expired: await runHoldExpiryJob(trx, at), reminded: await runHandoffReminderJob(trx, at), retried: (await runNotificationRetryJob(trx, at)).retried };
     }
   }
 }

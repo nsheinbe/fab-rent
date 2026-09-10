@@ -1,6 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { Pill } from "@/components/ui/pill";
@@ -11,7 +11,7 @@ import { updateProviderSettings } from "@/app/(provider)/actions";
 
 interface P { name: string; about: string; address: string; neighbourhood: string; response_minutes: number; hours_label: string; delivery_vans: string[]; kind: string; verified: boolean; insurance_valid_until: string | null; accepting: boolean; tax_id: string | null; tax_id_verified: boolean; payout_account_masked: string | null; payout_account_verified: boolean }
 
-export function SettingsForm({ providerId, isOwner, provider, members, neighbourhoods }: { providerId: string; isOwner: boolean; provider: P; members: Array<{ role: string; name: string; email: string | null }>; neighbourhoods: string[] }) {
+export function SettingsForm({ providerId, isOwner, provider, members, neighbourhoods, notifications }: { providerId: string; isOwner: boolean; provider: P; members: Array<{ role: string; name: string; email: string | null }>; neighbourhoods: string[]; notifications?: ReactNode }) {
   const [f, setF] = useState(provider);
   const [pending, start] = useTransition();
   const router = useRouter();
@@ -61,6 +61,7 @@ export function SettingsForm({ providerId, isOwner, provider, members, neighbour
           <div className="text-[13px] font-bold text-charcoal">Accepting bookings</div>
           The switch in the sidebar pauses new requests and instant bookings without touching existing ones. Listings stay visible with “not accepting bookings”.
         </div>
+        {notifications}
       </aside>
     </div>
   );

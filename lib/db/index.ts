@@ -41,12 +41,27 @@ export interface DbActor {
   anonymousKey?: string | null;
 }
 
+type CommitHook = () => Promise<void>;
+const commitHooks = new WeakMap<object, CommitHook[]>();
+
+/**
+ * Registers work to run once the transaction `trx` belongs to has committed (outbound email, for
+ * example — it must never go out for a state change that rolls back). Hooks are dropped if the
+ * transaction fails; a hook that throws is logged and never surfaces to the user.
+ */
+export function onCommit(trx: Trx, hook: CommitHook): void {
+  const list = commitHooks.get(trx) ?? [];
+  list.push(hook);
+  commitHooks.set(trx, list);
+}
+
 /**
  * Runs `fn` in a transaction with Postgres' role and JWT claims set, so every RLS policy applies
  * exactly as it would through Supabase's API. This is the only way app code should touch the DB.
  */
 export async function runAs<T>(actor: DbActor, fn: (trx: Trx) => Promise<T>): Promise<T> {
-  return getDb()
+  let hooks: CommitHook[] = [];
+  const result = await getDb()
     .transaction()
     .execute(async (trx) => {
       const claims = actor.userId ? { sub: actor.userId, role: actor.role } : { role: actor.role };
@@ -55,8 +70,19 @@ export async function runAs<T>(actor: DbActor, fn: (trx: Trx) => Promise<T>): Pr
       await sql`select set_config('request.jwt.claim.role', ${actor.role}, true)`.execute(trx);
       await sql`select set_config('app.anonymous_key', ${actor.anonymousKey ?? ""}, true)`.execute(trx);
       await sql.raw(`set local role ${actor.role}`).execute(trx);
-      return fn(trx);
+      const r = await fn(trx);
+      hooks = commitHooks.get(trx) ?? [];
+      commitHooks.delete(trx);
+      return r;
     });
+  for (const hook of hooks) {
+    try {
+      await hook();
+    } catch (e) {
+      console.error("[db] commit hook failed:", (e as Error).message);
+    }
+  }
+  return result;
 }
 
 /**

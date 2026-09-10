@@ -55,6 +55,10 @@ export type ListingStatus = "changes_requested" | "draft" | "hidden" | "pending_
 
 export type MessageKind = "photo" | "system" | "text";
 
+export type NotificationChannel = "email";
+
+export type NotificationStatus = "failed" | "queued" | "sending" | "sent" | "skipped";
+
 export type Numeric = ColumnType<number, number | string, number | string>;
 
 export type PaymentKind = "apple_pay" | "card";
@@ -497,6 +501,30 @@ export interface Messages {
   updated_at: Generated<Timestamp>;
 }
 
+export interface NotificationDeliveries {
+  attempts: Generated<number>;
+  body_text: string | null;
+  booking_id: string | null;
+  channel: Generated<NotificationChannel>;
+  created_at: Generated<Timestamp>;
+  dedupe_key: string;
+  error: string | null;
+  id: Generated<string>;
+  last_attempt_at: Timestamp | null;
+  party: string | null;
+  payload: Generated<Json>;
+  provider: string;
+  provider_ref: string | null;
+  reason: string | null;
+  recipient_email: string | null;
+  recipient_profile_id: string | null;
+  sent_at: Timestamp | null;
+  status: Generated<NotificationStatus>;
+  subject: string | null;
+  template: string;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface OtpCodes {
   code: string;
   consumed_at: Timestamp | null;
@@ -551,6 +579,7 @@ export interface Profiles {
   late_return_count: Generated<number>;
   name: string;
   neighbourhood: string | null;
+  notification_prefs: Generated<Json>;
   phone: string | null;
   public_id: Generated<number>;
   rating_count: Generated<number>;
@@ -714,6 +743,7 @@ export interface DB {
   listings: Listings;
   marketplace_settings_versions: MarketplaceSettingsVersions;
   messages: Messages;
+  notification_deliveries: NotificationDeliveries;
   otp_codes: OtpCodes;
   payment_methods: PaymentMethods;
   payouts: Payouts;

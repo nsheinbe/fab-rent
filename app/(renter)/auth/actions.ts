@@ -1,4 +1,5 @@
 "use server";
+import { randomInt } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -7,6 +8,7 @@ import { getActor } from "@/lib/auth";
 import { ANON_COOKIE, SESSION_COOKIE, encodeSession, newSession } from "@/lib/auth/session";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { now } from "@/lib/time";
+import { sendSignInCode } from "@/lib/notifications/events";
 
 const nextSchema = z.string().regex(/^\/(?!\/)/).max(400).optional();
 
@@ -69,24 +71,39 @@ export async function oauthSignIn(formData: FormData) {
 }
 
 const identifierSchema = z.string().trim().min(3).max(120);
+const OTP_TTL_MINUTES = 10;
 
-/** Sends a one-time code. Real email/SMS delivery is out of scope: the code is logged to the console (and shown inline in demo mode). */
-export async function sendOtp(formData: FormData): Promise<{ ok: true; identifier: string; demoCode: string | null } | { ok: false; error: string }> {
+/**
+ * Sends exactly one one-time code by email through the notification provider (Supabase Auth sends
+ * its own when configured). The code never reaches the page: in demo mode the console adapter
+ * prints it to the server console; with a real adapter it arrives by email.
+ */
+export async function sendOtp(formData: FormData): Promise<{ ok: true; identifier: string } | { ok: false; error: string }> {
   const parsed = identifierSchema.safeParse(formData.get("identifier"));
   if (!parsed.success) return { ok: false, error: "Enter an email address or phone number" };
   const identifier = parsed.data.toLowerCase();
+  const isEmail = identifier.includes("@");
   if (isSupabaseConfigured()) {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = await createSupabaseServerClient();
-    const isEmail = identifier.includes("@");
     const { error } = isEmail ? await supabase.auth.signInWithOtp({ email: identifier }) : await supabase.auth.signInWithOtp({ phone: identifier });
     if (error) return { ok: false, error: error.message };
-    return { ok: true, identifier, demoCode: null };
+    return { ok: true, identifier };
   }
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  await runAsSystem((trx) => trx.insertInto("otp_codes").values({ identifier, code, expires_at: new Date(Date.now() + 10 * 60_000) }).execute());
-  console.info(`[auth] one-time code for ${identifier}: ${code}`);
-  return { ok: true, identifier, demoCode: code };
+  if (!isEmail) return { ok: false, error: "Codes by text message aren't available yet — use your email address." };
+  if (!z.email().safeParse(identifier).success) return { ok: false, error: "Enter a valid email address" };
+  const code = String(randomInt(100000, 1000000));
+  const [row, profile] = await runAsSystem(async (trx) => Promise.all([
+    trx.insertInto("otp_codes").values({ identifier, code, expires_at: new Date(Date.now() + OTP_TTL_MINUTES * 60_000) }).returning("id").executeTakeFirstOrThrow(),
+    trx.selectFrom("profiles").select(["id", "name"]).where("email", "=", identifier).executeTakeFirst(),
+  ]));
+  const sent = await sendSignInCode({ otpId: row.id, email: identifier, code, ttlMinutes: OTP_TTL_MINUTES, profileId: profile?.id ?? null, name: profile?.name ?? null });
+  if (!sent.ok) {
+    // a code nobody received must not stay valid
+    await runAsSystem((trx) => trx.deleteFrom("otp_codes").where("id", "=", row.id).execute());
+    return { ok: false, error: "We couldn't send the code. Check the address and try again in a minute." };
+  }
+  return { ok: true, identifier };
 }
 
 const verifySchema = z.object({ identifier: identifierSchema, code: z.string().trim().regex(/^\d{6}$/), name: z.string().trim().max(80).optional(), next: nextSchema });

@@ -1,20 +1,41 @@
 import { NextResponse } from "next/server";
 import { e2eInspectEnabled } from "@/lib/payments/hermetic";
 import { getPaymentProvider } from "@/lib/payments";
-import { runAsSystem, sql } from "@/lib/db";
+import { runAsSystem, sql, type Trx } from "@/lib/db";
 import { now } from "@/lib/time";
+import { e2eNotificationsInspectable } from "@/lib/notifications/hermetic";
+import { notifyBookingTransition } from "@/lib/notifications/events";
+import { transitionBooking } from "@/lib/booking-state/transition";
+import { BOOKING_EVENTS, type BookingEvent } from "@/lib/booking-state/machine";
+import type { BookingStatus } from "@/lib/booking-state/status";
+import { runJob, type JobName } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Money-path e2e inspection. Fail-closed: 404 unless E2E_INSPECT=1 and payments are the mock.
- * Never enabled beside PAYMENTS_PROVIDER=stripe.
+ * Money-path and notification e2e inspection. Fail-closed: 404 unless E2E_INSPECT=1, payments are
+ * the mock and notifications are the console adapter. Never enabled beside live providers.
  *
- *   GET  ?ref=FR-… | ?draftId=… | ?email=…
+ *   GET  ?ref=FR-… | ?draftId=… | ?email=… | ?otp=<email>
  *   POST { action: "seed_open_claim", ref, amount_cents, type? }
+ *        { action: "reset_calls" }
+ *        { action: "transition", ref, event, captureCents?, at? }      runs transitionBooking as staff/system
+ *        { action: "replay_notifications", ref, event }                re-runs the notification hook for the last such event
+ *        { action: "run_job", job, at? }
  */
 function denied() {
   return NextResponse.json({ error: "Not found" }, { status: 404 });
+}
+
+function enabled() {
+  return e2eInspectEnabled() && e2eNotificationsInspectable();
+}
+
+async function deliveriesFor(trx: Trx, where: { booking_id?: string; email?: string }) {
+  let q = trx.selectFrom("notification_deliveries").select(["id", "template", "party", "status", "reason", "provider", "recipient_email", "subject", "attempts", "booking_id", "created_at"]).orderBy("created_at");
+  if (where.booking_id) q = q.where("booking_id", "=", where.booking_id);
+  if (where.email) q = q.where("recipient_email", "=", where.email.toLowerCase());
+  return q.execute();
 }
 
 function ledgerBalances(row: { gross_cents: number; commission_cents: number; adjustment_cents: number; net_cents: number }) {
@@ -22,15 +43,21 @@ function ledgerBalances(row: { gross_cents: number; commission_cents: number; ad
 }
 
 export async function GET(req: Request) {
-  if (!e2eInspectEnabled()) return denied();
+  if (!enabled()) return denied();
   const url = new URL(req.url);
   const ref = url.searchParams.get("ref");
   const draftId = url.searchParams.get("draftId");
   const email = url.searchParams.get("email");
+  const otp = url.searchParams.get("otp");
   const payments = await getPaymentProvider();
   const calls = payments.recordedCalls?.() ?? [];
 
   const data = await runAsSystem(async (trx) => {
+    if (otp) {
+      const row = await trx.selectFrom("otp_codes").select(["code", "expires_at"]).where("identifier", "=", otp.toLowerCase()).where("consumed_at", "is", null).where("expires_at", ">", new Date()).orderBy("created_at", "desc").executeTakeFirst();
+      const deliveries = await deliveriesFor(trx, { email: otp });
+      return { code: row?.code ?? null, deliveries };
+    }
     if (ref) {
       const booking = await trx
         .selectFrom("bookings")
@@ -42,7 +69,9 @@ export async function GET(req: Request) {
       if (holdRef && payments.rememberAuthorization) payments.rememberAuthorization(holdRef, booking.hold_cents);
       const ledger = await trx.selectFrom("ledger_entries").selectAll().where("booking_id", "=", booking.id).orderBy("created_at").execute();
       const claims = await trx.selectFrom("claims").select(["id", "type", "status", "amount_cents", "settled_cents"]).where("booking_id", "=", booking.id).execute();
+      const deliveries = await deliveriesFor(trx, { booking_id: booking.id });
       return {
+        deliveries,
         booking: {
           ...booking,
           charged_cents: Number(booking.charged_cents),
@@ -71,14 +100,15 @@ export async function GET(req: Request) {
       return { draft: draft ?? null, booking: null, ledger: [], calls };
     }
     if (email) {
-      const profile = await trx.selectFrom("profiles").select("id").where("email", "=", email).executeTakeFirst();
-      if (!profile) return { bookings: [], ledger: [], calls };
+      const profile = await trx.selectFrom("profiles").select(["id", "notification_prefs"]).where("email", "=", email).executeTakeFirst();
+      const deliveries = await deliveriesFor(trx, { email });
+      if (!profile) return { bookings: [], ledger: [], calls, deliveries, profile: null };
       const bookings = await trx.selectFrom("bookings").select(["id", "ref", "status", "hold_status", "charged_cents"]).where("renter_id", "=", profile.id).execute();
       const ids = bookings.map((b) => b.id);
       const ledger = ids.length
         ? await trx.selectFrom("ledger_entries").select(["id", "booking_id", "type", "gross_cents", "commission_cents", "adjustment_cents", "net_cents", "status"]).where("booking_id", "in", ids).execute()
         : [];
-      return { bookings, ledger, calls };
+      return { bookings, ledger, calls, deliveries, profile: { notification_prefs: profile.notification_prefs } };
     }
     return { calls };
   });
@@ -87,12 +117,45 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  if (!e2eInspectEnabled()) return denied();
-  const body = (await req.json().catch(() => null)) as { action?: string; ref?: string; amount_cents?: number; type?: "damage" | "cleaning" | "missing" } | null;
+  if (!enabled()) return denied();
+  const body = (await req.json().catch(() => null)) as { action?: string; ref?: string; amount_cents?: number; type?: "damage" | "cleaning" | "missing"; event?: string; captureCents?: number; at?: string; job?: string } | null;
   if (body?.action === "reset_calls") {
     const payments = await getPaymentProvider();
     payments.clearRecordedCalls?.();
     return NextResponse.json({ ok: true });
+  }
+  if (body?.action === "transition" || body?.action === "replay_notifications") {
+    if (!body.ref || !body.event || !(BOOKING_EVENTS as readonly string[]).includes(body.event)) return NextResponse.json({ error: "ref and a known event are required" }, { status: 400 });
+    const event = body.event as BookingEvent;
+    const at = body.at ? new Date(body.at) : now();
+    try {
+      const result = await runAsSystem(async (trx) => {
+        const b = await trx.selectFrom("bookings").select(["id", "status"]).where("ref", "=", body.ref!).executeTakeFirst();
+        if (!b) return { error: "Booking not found" };
+        if (body.action === "transition") {
+          const role = event === "instant_confirm" || event === "return_window_open" || event === "grace_elapsed" ? ("system" as const) : ("staff" as const);
+          const t = await transitionBooking(trx, b.id, event, { role, id: null, name: "e2e" }, { at, captureCents: body.captureCents });
+          return { booking_id: b.id, from: t.from, to: t.to };
+        }
+        const ev = await trx.selectFrom("booking_events").select(["from_status", "to_status", "payload", "occurred_at"]).where("booking_id", "=", b.id).where("type", "=", event).orderBy("occurred_at", "desc").executeTakeFirst();
+        if (!ev) return { error: "No such event on this booking" };
+        const results = await notifyBookingTransition(trx, { bookingId: b.id, event, from: ev.from_status as BookingStatus, to: ev.to_status as BookingStatus, payload: (ev.payload as Record<string, unknown>) ?? {}, at: ev.occurred_at });
+        return { booking_id: b.id, results };
+      });
+      if ("error" in result) return NextResponse.json(result, { status: 404 });
+      // deliveries are dispatched after the transaction above committed — read them afterwards, as the product does
+      const deliveries = await runAsSystem((trx) => deliveriesFor(trx, { booking_id: result.booking_id }));
+      return NextResponse.json({ ...result, deliveries });
+    } catch (e) {
+      return NextResponse.json({ error: (e as Error).message }, { status: 409 });
+    }
+  }
+  if (body?.action === "run_job") {
+    const job = body.job as JobName | undefined;
+    if (!job) return NextResponse.json({ error: "job is required" }, { status: 400 });
+    const at = body.at ? new Date(body.at) : now();
+    const result = await runAsSystem((trx) => runJob(trx, job, at));
+    return NextResponse.json({ job, at: at.toISOString(), ...result });
   }
   if (body?.action !== "seed_open_claim" || !body.ref || !body.amount_cents || body.amount_cents <= 0) {
     return NextResponse.json({ error: "Invalid seed_open_claim" }, { status: 400 });

@@ -40,8 +40,12 @@ same migrations, RLS policies and seed run on plain Postgres. With the Supabase 
 
 Without Supabase keys the app runs fully offline:
 
-- **Sign-in**: pick a demo account on `/auth`, or enter any email and use the one-time code shown inline
-  (`DEMO_NOW` freezes the clock; sessions are HMAC-signed cookies).
+- **Sign-in**: pick a demo account on `/auth`, or enter any email and use the one-time code the server
+  prints to its console (`[notify] you@example.com · 123456 is your fab.rent sign-in code`). Codes are never
+  shown in the page. `DEMO_NOW` freezes the clock; sessions are HMAC-signed cookies.
+- **Email** goes through the console adapter: every lifecycle message (booking requested, confirmed,
+  declined, cancelled, reminders, claims, disputes, extensions, payouts, listing decisions) is logged and
+  recorded in `notification_deliveries`; nothing leaves the machine.
 - **Photos** are stored under `.data/storage/<bucket>/` and served through `/api/storage/*` with short-lived
   signed tokens for private buckets.
 - **Payments** use the deterministic mock provider (holds, captures, releases and refunds are all modelled;
@@ -107,6 +111,7 @@ unless every live secret is present, and refused again in CI (hermetic first).
 | Database | `DATABASE_URL` | Required. Plain Postgres or the Supabase connection string. |
 | Supabase | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Enables Supabase Auth (Google / Apple / email OTP), Storage buckets and Realtime chat. Unset → demo mode. |
 | Stripe | `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_CURRENCY` | Card Element + SetupIntent at checkout; PaymentIntents with manual capture for holds; webhook at `/api/webhooks/stripe`. |
+| Email | `NOTIFICATIONS_PROVIDER=resend`, `RESEND_API_KEY`, `NOTIFICATIONS_FROM`, `NOTIFICATIONS_REPLY_TO`, `APP_URL` | Transactional email through Resend (sign-in codes + lifecycle messages). Unset → console adapter, which logs and records but never sends. Fail-closed: missing secrets name themselves; CI refuses Resend unless `HERMETIC=0`. |
 | Jobs | `CRON_SECRET` | Protects `/api/cron/[job]` (bearer token or `?secret=`). |
 | Demo clock | `DEMO_NOW` | Market-local ISO time; unset for real time. |
 | Maps | `NEXT_PUBLIC_DISABLE_MAPLIBRE=1` | Keep the design's placeholder tiles instead of MapLibre demo tiles. |
@@ -123,6 +128,8 @@ Actions, `curl`) works as long as it sends `CRON_SECRET`. Every job is idempoten
 | `/api/cron/claims` | hourly | escalates claims the renter did not answer into a dispute for ops |
 | `/api/cron/hold-expiry` | hourly | marks card authorisations that lapsed (ops can extend from the dispute view) |
 | `/api/cron/reviews` | daily | publishes double-blind reviews after the waiting period |
+| `/api/cron/reminders` | hourly | handoff reminders to both parties the day before a pickup or delivery (once per booking) |
+| `/api/cron/notifications` | every 10 min | re-dispatches queued or failed email deliveries (up to three attempts; failures stay visible in `notification_deliveries`) |
 
 ### Deploying
 
@@ -141,7 +148,11 @@ Actions, `curl`) works as long as it sends `CRON_SECRET`. Every job is idempoten
 - Private buckets are served only through short-lived signed URLs; evidence and condition photos are never
   public.
 - RLS policies are the source of truth for who sees what; server code cannot bypass them except through the
-  explicit `asSystem()` / `runAsSystem()` helpers, which are reserved for ledger writes, webhooks and jobs.
+  explicit `asSystem()` / `runAsSystem()` helpers, which are reserved for ledger writes, notification
+  records, webhooks and jobs.
+- Outbound email is a transactional outbox: a message is recorded inside the transaction that changed the
+  state and sent only after it commits, with a unique key per (message, booking, recipient) so a replayed
+  transition or retried job never sends twice. Sign-in codes are never stored on the delivery record.
 
 ## License
 
