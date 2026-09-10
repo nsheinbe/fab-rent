@@ -4,13 +4,14 @@ The September 9, 2026 request restores the original fabrication/manufacturing in
 
 ## Delivered experience
 
-- Responsive manufacturing homepage with categories, product/capability search, US region, minimum-order and earliest-lead-time filters.
-- Manufacturer and product/part views. Products are made to specification, not stocked inventory with invented prices.
-- Profiles showing capabilities, materials, minimum order, production scale, and illustrative lead-time ranges.
-- Device-local shortlist and comparison for two or three manufacturers.
-- Project brief → RFQ review → text-download flow, with selected example suppliers attached. No messages are sent.
-- Manufacturer onboarding draft for company details, production location, and capabilities. It is downloaded, not submitted.
-- Forest-green and warm-neutral visual system. Images are generated illustrations; all six suppliers are fictional and visibly labeled.
+- Search-first manufacturing homepage with separate **Have it made** and **Buy wholesale** paths; responsive navigation, readable controls, categories, region, minimum-order, lead-time, and capacity filters.
+- Six fictional supplier profiles, a persistent browser shortlist, capability comparison, and expandable evidence checklists. Actual production location is distinguished from a business address; no verification is claimed.
+- Guided sourcing briefs with optional specifications, keyword-based process suggestions, supplier selection, review, and local attachments (five files, 10 MB each, 25 MB total). Closing a brief keeps it available to resume in the same tab.
+- Project workspace with brief revisions, attachment downloads, demo conversations, quote comparison, and first-order next steps. An example 1,000-bracket project demonstrates how the lowest unit price differs from the lowest subtotal.
+- Quote comparison includes quantities, unit costs, tooling, shipping, inspection, lead time, validity, assumptions and exclusions. Different quantities, specifications, or exclusions are flagged and excluded from comparable highlights. Totals exclude taxes and are not presented as landed cost.
+- Three illustrative wholesale products have variants, stock examples, quantity pricing, sample requests, and inquiry drafts. No order or payment is placed.
+- Supplier workspace supports demo quotes, questions, declines, and dated availability declarations. These update the buyer-facing preview; expired declarations require confirmation.
+- Forest-green and warm-neutral design with generated catalog illustrations, earlier search placement, mobile offer cards and mobile project/supplier navigation.
 
 ## Product model
 
@@ -32,7 +33,7 @@ A US office address is not evidence of US manufacturing. Before live launch, cap
 
 `preview/main.tsx` mounts those same components into the static preview built with `pnpm build:preview`. The script uses locked transitive esbuild and PostCSS installations. `.openai/hosting.json` serves only `dist`. The full app retains its original Next.js build and package manager.
 
-Shortlist IDs use local browser storage. RFQ details stay in React memory in the current tab and can be downloaded. Reference links are never fetched. The preview has no file uploads, messages, account creation, or transactions.
+Shortlist IDs use local browser storage. Project drafts, quotes, availability, conversations, and attachments stay in memory and reset on a page reload. Files can be selected, previewed where supported, removed, or downloaded locally; they are never uploaded, analyzed, or transmitted. Brief text exports list attachment names but do not include file contents. Supplier replies are simulated. The preview has no live messages, account creation, or transactions.
 
 For live manufacturing transactions, introduce separate supplier/capability, RFQ, quote, and order records; onboarding and verification; authenticated quote delivery; attachment access controls; and a production-order lifecycle. Existing rental payment and booking semantics need separate product design.
 
@@ -44,4 +45,4 @@ For live manufacturing transactions, introduce separate supplier/capability, RFQ
 
 ## Validation scope
 
-TypeScript, lint, unit tests, and standalone bundle validation cover this redesign. Search regressions cover buyer phrasing, production scale, state aliases, hyphenated materials, and combined filters. Browser UI testing was not requested. The optional WebMCP search uses the same filters and visible state; no supported WebMCP validation context was available, so that optional integration is unverified.
+TypeScript, lint, unit tests, and standalone bundle validation cover this redesign. Regression tests cover search phrasing and filters, exact cost totals, noncomparable offers, integer-cent parsing, price-tier boundaries, process matching, and attachment export scope. Browser UI testing was not requested. The optional WebMCP search uses the same filters and visible state; no supported WebMCP validation context was available, so that optional integration is unverified.

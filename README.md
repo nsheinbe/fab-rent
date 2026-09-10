@@ -2,7 +2,7 @@
 
 The homepage now presents a manufacturing and sourcing marketplace: search by capability, product, material, or location; inspect manufacturer profiles; shortlist and compare suppliers; prepare a request for quote. See [the redesign scope](MANUFACTURING-REDESIGN.md).
 
-**This is an interactive UI/UX prototype.** Six fictional suppliers and AI-generated catalog illustrations demonstrate the design. RFQs and manufacturer profiles download as text drafts; nothing is sent or published. Shortlists are stored only in the current browser. Draft form entries last only in the current tab.
+**This is an interactive UI/UX prototype.** Six fictional suppliers and AI-generated catalog illustrations demonstrate the design. Custom briefs, local attachments, wholesale inquiries, quote comparisons, and supplier response simulations are interactive. Shortlists are stored in the current browser; projects and files last only until a page reload. Nothing is sent to a supplier or purchased. Manufacturer profiles and briefs can be downloaded as text drafts.
 
 Run `pnpm dev` for the Next.js app, or `pnpm build:preview` to produce a standalone design preview in `dist/`. The preview uses the same React components and styling as the app and requires no database. Sites hosts only this static manufacturing preview, not the retained rental back end.
 
