@@ -55,7 +55,7 @@ export function SettingsForm({ providerId, isOwner, provider, members, neighbour
             <li className="flex justify-between"><span className="text-text-2">Tax ID</span><Pill tone={provider.tax_id_verified ? "ok" : "warn"} size="xs" dot>{provider.tax_id_verified ? "Verified" : "Pending"}</Pill></li>
             <li className="flex justify-between"><span className="text-text-2">Payout account</span><Pill tone={provider.payout_account_verified ? "ok" : "warn"} size="xs" dot>{provider.payout_account_verified ? "Verified" : "Pending"}</Pill></li>
           </ul>
-          <Button size="sm" variant="secondary" className="mt-3 w-full" href="/provider/earnings">Payout settings</Button>
+          <Button size="sm" variant="secondary" className="mt-3 w-full" href="/provider/earnings">Payout account</Button>
         </div>
         <div className="card p-4 text-[12px] leading-[1.5] text-text-3">
           <div className="text-[13px] font-bold text-charcoal">Accepting bookings</div>

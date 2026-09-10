@@ -12,7 +12,8 @@ import { formatMoney } from "@/lib/format";
 import type { ActionResult } from "@/app/(renter)/actions";
 import { diffConfigs } from "@/lib/settings/diff";
 import { extendHold } from "@/lib/jobs";
-import { markPayoutPaid } from "@/lib/payouts";
+import { isPayoutError } from "@/lib/payouts";
+import { attemptPayout, describeOutcome, runPayoutJob, type AttemptOutcome } from "@/lib/payouts/run";
 import { notifyListingReviewed, notifyPayoutReminder } from "@/lib/notifications/events";
 
 type Staff = Actor & { staff: NonNullable<Actor["staff"]> };
@@ -284,41 +285,59 @@ export async function rollbackSettings(version: number): Promise<ActionResult> {
 /* ------------------------------------------------------------ payouts / reports */
 
 /**
- * Ops actions on a payout row. No money moves in Phase 6: retry/release change the row's status,
- * "remind" emails the provider what is blocking the payout, and "mark_paid" records an off-platform
- * payout (ledger entries → paid) and tells the provider. Phase 7 replaces mark_paid with the transfer result.
+ * Ops actions on a payout row (Phase 7). retry / release / pay_now all run the real payout attempt:
+ * the account's state is re-read from the payout provider, the cleared ledger entries are summed and
+ * transferred, and the result reconciles back to the row — a paused account is refused with the
+ * blocker, a failed transfer lands in the exception state. "remind" emails the provider what is
+ * blocking the payout. Nothing here marks a payout paid without a transfer.
  */
-export async function payoutAction(payoutId: string, action: "retry" | "remind" | "release" | "mark_paid"): Promise<ActionResult> {
+export async function payoutAction(payoutId: string, action: "retry" | "remind" | "release" | "pay_now"): Promise<ActionResult> {
   const actor = await requireStaff();
   if (!can(actor, "payouts")) return { ok: false, error: "Payouts permission required" };
+  const verb = action === "remind" ? "reminded" : action === "retry" ? "retried payout for" : action === "release" ? "released payout for" : "paid out now for";
   const r = await withActor(async (trx) => {
-    const p = await trx.selectFrom("payouts as po").innerJoin("providers as pv", "pv.id", "po.provider_id").select(["po.id", "po.provider_id", "pv.name", "po.amount_cents"]).where("po.id", "=", payoutId).executeTakeFirstOrThrow();
-    if (action === "retry") await trx.updateTable("payouts").set({ status: "scheduled", exception: null, exception_detail: "retry scheduled by ops", scheduled_for: new Date(Date.now() + 86_400_000) }).where("id", "=", p.id).execute();
-    if (action === "release") {
-      await trx.updateTable("payouts").set({ status: "scheduled", exception: null, exception_detail: null }).where("id", "=", p.id).execute();
-      await trx.updateTable("providers").set({ payouts_paused: false, payouts_paused_reason: null }).where("id", "=", p.provider_id).execute();
-    }
+    const p = await trx.selectFrom("payouts as po").innerJoin("providers as pv", "pv.id", "po.provider_id").select(["po.id", "po.provider_id", "pv.name", "po.amount_cents", "po.status"]).where("po.id", "=", payoutId).executeTakeFirstOrThrow();
     let note: string;
     if (action === "remind") {
       const sent = await notifyPayoutReminder(trx, p.id);
       if (sent?.status === "deduped") return { ok: false as const, error: "Already reminded today" };
       if (sent?.status === "skipped") return { ok: false as const, error: `Couldn't send: ${sent.reason === "no_email" ? "the owner has no email address" : "opted out"}` };
       note = `Reminder sent about the paused payout (${formatMoney(p.amount_cents)}).`;
-    } else if (action === "mark_paid") {
-      const paid = await asSystem(trx, (sys) => markPayoutPaid(sys, p.id));
-      if (!paid.ok) return { ok: false as const, error: paid.error };
-      note = `Payout ${formatMoney(paid.amount_cents)} marked paid by ops (${paid.rental_count} ${paid.rental_count === 1 ? "rental" : "rentals"}); provider notified.`;
+      await log(trx, actor, `${verb} ${p.name}`, { type: "payout", id: p.id, label: p.name });
     } else {
-      note = action === "retry" ? `Payout ${formatMoney(p.amount_cents)} re-queued.` : `Payout hold released manually.`;
+      let outcome: AttemptOutcome;
+      try {
+        outcome = await asSystem(trx, (sys) => attemptPayout(sys, p.id, { trigger: action }));
+      } catch (e) {
+        return { ok: false as const, error: isPayoutError(e) ? e.message : (e as Error).message };
+      }
+      const summary = describeOutcome(outcome);
+      await log(trx, actor, `${verb} ${p.name} · ${summary}`, { type: "payout", id: p.id, label: p.name });
+      if (outcome.outcome !== "paid") return { ok: false as const, error: summary };
+      note = `Payout ${formatMoney(outcome.amount_cents)} sent (${outcome.rental_count} ${outcome.rental_count === 1 ? "rental" : "rentals"}) · ${outcome.transfer_ref} · provider notified.`;
     }
     await trx.insertInto("internal_notes").values({ target_type: "provider", target_id: p.provider_id, author_id: actor.userId, author_name: shortName(actor.profile?.name ?? "Staff"), body: note }).execute();
-    await log(trx, actor, `${action === "remind" ? "reminded" : action === "retry" ? "retried payout for" : action === "mark_paid" ? "marked payout paid for" : "released payout for"} ${p.name}`, { type: "payout", id: p.id, label: p.name });
     return { ok: true as const, data: undefined };
   });
   revalidatePath("/admin/payouts");
   revalidatePath("/admin");
   revalidatePath("/provider/earnings");
   return r;
+}
+
+/** Runs the payout job now — schedule cleared earnings, transfer what is due, reconcile — exactly as the cron does. */
+export async function runPayoutsNow(): Promise<ActionResult<{ scheduled: number; paid: number; paused: number; failed: number; skipped: number }>> {
+  const actor = await requireStaff();
+  if (!can(actor, "payouts")) return { ok: false, error: "Payouts permission required" };
+  const tally = await withActor(async (trx) => {
+    const t = await asSystem(trx, (sys) => runPayoutJob(sys));
+    await log(trx, actor, `ran payouts · ${t.paid} paid · ${t.paused} paused · ${t.failed} failed`, { type: "payout_run" });
+    return t;
+  });
+  revalidatePath("/admin/payouts");
+  revalidatePath("/admin");
+  revalidatePath("/provider/earnings");
+  return { ok: true, data: { scheduled: tally.scheduled, paid: tally.paid, paused: tally.paused, failed: tally.failed, skipped: tally.skipped } };
 }
 
 export async function resolveReport(reportId: string, status: "resolved" | "dismissed"): Promise<ActionResult> {

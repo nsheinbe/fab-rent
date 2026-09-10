@@ -82,7 +82,7 @@ function decisionLabel(d: string): string {
 }
 
 /** Booking-scoped messages. `party` selects the copy for the renter or the provider. */
-export function renderBooking(template: Exclude<TemplateKey, "otp_code" | "payout_sent" | "payout_reminder" | "listing_reviewed">, party: "renter" | "provider", b: BookingContext): Rendered {
+export function renderBooking(template: Exclude<TemplateKey, "otp_code" | "payout_sent" | "payout_reminder" | "payout_account_verified" | "payout_account_action" | "listing_reviewed">, party: "renter" | "provider", b: BookingContext): Rendered {
   const dates = formatDateRange(b.start_at, b.end_at, { times: true, tz: b.tz });
   const renter = first(b.renter_name);
   const p = b.payload;
@@ -349,6 +349,40 @@ export function renderPayoutReminder(c: PayoutContext): Rendered {
   return {
     subject: `Your payout of ${money(c.amount_cents)} is paused`,
     text: [`${money(c.amount_cents)} for ${c.rental_count} ${c.rental_count === 1 ? "rental" : "rentals"} is waiting: ${why}.`, `Update your tax ID or payout account under Earnings → Payout settings and it goes out on the next run.`, `${c.app_url}/provider/earnings`].join("\n"),
+  };
+}
+
+export interface PayoutAccountContext {
+  provider_name: string;
+  account_masked: string | null;
+  schedule_label: string;
+  /** what still needs doing, in human labels */
+  outstanding: string[];
+  /** "Tax ID missing", "Bank account verification failed" … */
+  reason: string | null;
+  detail: string | null;
+  deadline: Date | null;
+  tz: string;
+  app_url: string;
+}
+
+export function renderPayoutAccountVerified(c: PayoutAccountContext): Rendered {
+  return {
+    subject: `Payouts set up · ${c.account_masked ?? "your payout account"} is verified`,
+    text: [`Your payout account is verified. Earnings clear at return check-in and go out ${c.schedule_label.toLowerCase()} to ${c.account_masked ?? "your payout account"}.`, `Earnings and the ledger: ${c.app_url}/provider/earnings`].join("\n"),
+  };
+}
+
+export function renderPayoutAccountAction(c: PayoutAccountContext): Rendered {
+  const items = c.outstanding.length ? c.outstanding.join(" · ") : (c.reason ?? "more details");
+  const why = [c.reason, c.detail].filter(Boolean).join(" · ");
+  return {
+    subject: `Action needed on your payout account${c.reason ? ` · ${c.reason}` : ""}`,
+    text: [
+      `${why ? `${why}. ` : ""}The payout provider needs: ${items}.${c.deadline ? ` Due by ${formatDateTime(c.deadline, c.tz).split(" · ")[0]}.` : ""}`,
+      `Payouts are paused until this is resolved; cleared earnings wait and go out on the next run afterwards.`,
+      `Finish under Earnings → Payout account: ${c.app_url}/provider/earnings`,
+    ].join("\n"),
   };
 }
 

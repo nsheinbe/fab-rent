@@ -9,26 +9,28 @@ import { transitionBooking } from "@/lib/booking-state/transition";
 import { BOOKING_EVENTS, type BookingEvent } from "@/lib/booking-state/machine";
 import type { BookingStatus } from "@/lib/booking-state/status";
 import { runJob, type JobName } from "@/lib/jobs";
+import { getPayoutProvider, e2ePayoutsInspectable, type PayoutErrorCode } from "@/lib/payouts";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Money-path and notification e2e inspection. Fail-closed: 404 unless E2E_INSPECT=1, payments are
- * the mock and notifications are the console adapter. Never enabled beside live providers.
+ * Money-path and notification e2e inspection. Fail-closed: 404 unless E2E_INSPECT=1, payments and
+ * payouts are the mocks and notifications are the console adapter. Never enabled beside live providers.
  *
- *   GET  ?ref=FR-… | ?draftId=… | ?email=… | ?otp=<email>
+ *   GET  ?ref=FR-… | ?draftId=… | ?email=… | ?otp=<email> | ?provider=<slug>   (provider: payout account, payouts, ledger, payout calls)
  *   POST { action: "seed_open_claim", ref, amount_cents, type? }
- *        { action: "reset_calls" }
+ *        { action: "reset_calls" }                                     payments + payouts call logs
  *        { action: "transition", ref, event, captureCents?, at? }      runs transitionBooking as staff/system
  *        { action: "replay_notifications", ref, event }                re-runs the notification hook for the last such event
  *        { action: "run_job", job, at? }
+ *        { action: "payouts_fail_next", reason?, code? }               the mock's next transfer fails (exception + retry path)
  */
 function denied() {
   return NextResponse.json({ error: "Not found" }, { status: 404 });
 }
 
 function enabled() {
-  return e2eInspectEnabled() && e2eNotificationsInspectable();
+  return e2eInspectEnabled() && e2eNotificationsInspectable() && e2ePayoutsInspectable();
 }
 
 async function deliveriesFor(trx: Trx, where: { booking_id?: string; email?: string }) {
@@ -49,10 +51,38 @@ export async function GET(req: Request) {
   const draftId = url.searchParams.get("draftId");
   const email = url.searchParams.get("email");
   const otp = url.searchParams.get("otp");
+  const providerSlug = url.searchParams.get("provider");
   const payments = await getPaymentProvider();
+  const payouts = await getPayoutProvider();
   const calls = payments.recordedCalls?.() ?? [];
+  const payout_calls = payouts.recordedCalls?.() ?? [];
 
   const data = await runAsSystem(async (trx) => {
+    if (providerSlug) {
+      const provider = await trx.selectFrom("providers").select(["id", "slug", "name", "payout_schedule", "payouts_paused", "payouts_paused_reason", "payouts_paused_since", "payout_account_masked", "payout_account_verified", "tax_id_verified", "owner_profile_id"]).where("slug", "=", providerSlug).executeTakeFirst();
+      if (!provider) return { provider: null, payout_calls };
+      const connect = await trx.selectFrom("connect_accounts").selectAll().where("provider_id", "=", provider.id).executeTakeFirst();
+      const payoutRows = await trx.selectFrom("payouts").selectAll().where("provider_id", "=", provider.id).orderBy("scheduled_for", "desc").orderBy("created_at", "desc").execute();
+      const ledger = await trx
+        .selectFrom("ledger_entries as l")
+        .leftJoin("bookings as b", "b.id", "l.booking_id")
+        .select(["l.id", "l.type", "l.status", "l.gross_cents", "l.commission_cents", "l.adjustment_cents", "l.net_cents", "l.payout_id", "l.booking_id", "l.description", "b.ref", "b.price_snapshot"])
+        .where("l.provider_id", "=", provider.id)
+        .orderBy("l.created_at")
+        .execute();
+      const owner = await trx.selectFrom("profiles").select("email").where("id", "=", provider.owner_profile_id).executeTakeFirst();
+      const deliveries = owner?.email ? await deliveriesFor(trx, { email: owner.email }) : [];
+      const account_balance = connect ? await payouts.accountBalance(connect.account_ref) : null;
+      return {
+        provider,
+        connect: connect ?? null,
+        payouts: payoutRows.map((p) => ({ ...p, amount_cents: Number(p.amount_cents), rental_count: Number(p.rental_count), transfer_attempts: Number(p.transfer_attempts) })),
+        ledger: ledger.map((l) => ({ ...l, gross_cents: Number(l.gross_cents), commission_cents: Number(l.commission_cents), adjustment_cents: Number(l.adjustment_cents), net_cents: Number(l.net_cents), provider_payout_cents: (l.price_snapshot as { provider?: { payout_cents?: number } } | null)?.provider?.payout_cents ?? null, price_snapshot: undefined })),
+        deliveries,
+        account_balance,
+        payout_calls,
+      };
+    }
     if (otp) {
       const row = await trx.selectFrom("otp_codes").select(["code", "expires_at"]).where("identifier", "=", otp.toLowerCase()).where("consumed_at", "is", null).where("expires_at", ">", new Date()).orderBy("created_at", "desc").executeTakeFirst();
       const deliveries = await deliveriesFor(trx, { email: otp });
@@ -118,10 +148,17 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   if (!enabled()) return denied();
-  const body = (await req.json().catch(() => null)) as { action?: string; ref?: string; amount_cents?: number; type?: "damage" | "cleaning" | "missing"; event?: string; captureCents?: number; at?: string; job?: string } | null;
+  const body = (await req.json().catch(() => null)) as { action?: string; ref?: string; amount_cents?: number; type?: "damage" | "cleaning" | "missing"; event?: string; captureCents?: number; at?: string; job?: string; reason?: string; code?: PayoutErrorCode } | null;
   if (body?.action === "reset_calls") {
     const payments = await getPaymentProvider();
     payments.clearRecordedCalls?.();
+    (await getPayoutProvider()).clearRecordedCalls?.();
+    return NextResponse.json({ ok: true });
+  }
+  if (body?.action === "payouts_fail_next") {
+    const payouts = await getPayoutProvider();
+    if (!payouts.failNextTransfer) return NextResponse.json({ error: "Only the mock payout provider can script a failure" }, { status: 400 });
+    payouts.failNextTransfer(body.reason ?? "Simulated transfer failure", body.code ?? "provider_error");
     return NextResponse.json({ ok: true });
   }
   if (body?.action === "transition" || body?.action === "replay_notifications") {

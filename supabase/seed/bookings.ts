@@ -474,20 +474,21 @@ export function emitAfterBookings(sql: Sql, result: BookingsResult) {
   sql.comment("payouts");
   const northlandsPayouts = payoutDates();
   const payoutRows: Array<Record<string, SqlValue>> = northlandsPayouts.map((p, i) => ({
-    id: uid(`payout:${p.key}`), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(p.date), paid_at: addHours(p.date, 3), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: addHours(p.date, -24 * 6 + i * 0),
+    id: uid(`payout:${p.key}`), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(p.date), paid_at: addHours(p.date, 3), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: addHours(p.date, -24 * 6 + i * 0), payout_provider: "mock",
   }));
   payoutRows.push(
-    { id: uid("payout:northlands-4aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-32)), paid_at: day(-32, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-38) },
-    { id: uid("payout:northlands-11aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-25)), paid_at: day(-25, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-31) },
-    { id: uid("payout:northlands-18aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-18)), paid_at: day(-18, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-24) },
-    { id: uid("payout:northlands-21jul"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-46)), paid_at: day(-46, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-52) },
-    { id: uid("payout:northlands-14jul"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-53)), paid_at: day(-53, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-59) },
-    { id: uid("payout:saltway-1sep"), provider_id: PR("saltway"), amount_cents: 0, scheduled_for: dateOnly(day(-4)), paid_at: day(-4, "09:00"), status: "paid", account_masked: "Maren Bank •••• 6650", rental_count: 0, created_at: day(-10) },
+    { payout_provider: "mock", id: uid("payout:northlands-4aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-32)), paid_at: day(-32, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-38) },
+    { payout_provider: "mock", id: uid("payout:northlands-11aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-25)), paid_at: day(-25, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-31) },
+    { payout_provider: "mock", id: uid("payout:northlands-18aug"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-18)), paid_at: day(-18, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-24) },
+    { payout_provider: "mock", id: uid("payout:northlands-21jul"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-46)), paid_at: day(-46, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-52) },
+    { payout_provider: "mock", id: uid("payout:northlands-14jul"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(-53)), paid_at: day(-53, "09:00"), status: "paid", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(-59) },
+    { payout_provider: "mock", id: uid("payout:saltway-1sep"), provider_id: PR("saltway"), amount_cents: 0, scheduled_for: dateOnly(day(-4)), paid_at: day(-4, "09:00"), status: "paid", account_masked: "Maren Bank •••• 6650", rental_count: 0, created_at: day(-10) },
     // exceptions
-    { id: uid("payout:docks-exception"), provider_id: PR("docks"), amount_cents: 642000, scheduled_for: dateOnly(day(-4)), paid_at: null, status: "failed", account_masked: "Dockside Mutual •••• 0193", rental_count: 31, exception: "Bank account verification failed", exception_detail: "retry 2", created_at: day(-10) },
-    { id: uid("payout:tomas-exception"), provider_id: PR("tomas"), amount_cents: 41230, scheduled_for: dateOnly(day(-4)), paid_at: null, status: "paused", account_masked: "Maren Bank •••• 3318", rental_count: 6, exception: "Tax ID missing", exception_detail: "payout paused since 1 Sep", created_at: day(-10) },
+    // Phase 7: two transfer attempts refused because the bank account failed verification at the payout provider
+    { id: uid("payout:docks-exception"), provider_id: PR("docks"), amount_cents: 642000, scheduled_for: dateOnly(day(-4)), paid_at: null, status: "failed", account_masked: "Dockside Mutual •••• 0193", rental_count: 31, exception: "Bank account verification failed", exception_detail: "retry 2", created_at: day(-10), payout_provider: "mock", transfer_attempts: 2, last_attempt_at: day(-3, "09:15") },
+    { id: uid("payout:tomas-exception"), provider_id: PR("tomas"), amount_cents: 41230, scheduled_for: dateOnly(day(-4)), paid_at: null, status: "paused", account_masked: "Maren Bank •••• 3318", rental_count: 6, exception: "Tax ID missing", exception_detail: "payout paused since 1 Sep", created_at: day(-10), payout_provider: "mock" },
     // next scheduled
-    { id: uid("payout:northlands-next"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(3)), paid_at: null, status: "scheduled", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(0) },
+    { id: uid("payout:northlands-next"), provider_id: PR("northlands"), amount_cents: 0, scheduled_for: dateOnly(day(3)), paid_at: null, status: "scheduled", account_masked: "Maren Bank •••• 8812", rental_count: 0, created_at: day(0), payout_provider: "mock" },
   );
   sql.insert("public.payouts", payoutRows);
   sql.comment("ledger entries");

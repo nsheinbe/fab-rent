@@ -1,0 +1,29 @@
+{
+  "id": "acct_1RxPENDING00004",
+  "object": "account",
+  "business_profile": { "mcc": "7394", "name": "Vesper Camera Collective", "product_description": "Equipment, tool and event-supply rental through fab.rent", "url": null },
+  "business_type": "individual",
+  "capabilities": { "transfers": "active" },
+  "charges_enabled": false,
+  "country": "US",
+  "created": 1757000000,
+  "default_currency": "usd",
+  "details_submitted": true,
+  "email": "theo@vespercamera.example.com",
+  "external_accounts": {
+    "object": "list",
+    "data": [
+      { "id": "ba_1RxPENDINGBANK", "object": "bank_account", "account": "acct_1RxPENDING00004", "bank_name": "MAREN BANK", "country": "US", "currency": "usd", "default_for_currency": true, "last4": "4470", "routing_number": "110000000", "status": "new" }
+    ],
+    "has_more": false,
+    "total_count": 1,
+    "url": "/v1/accounts/acct_1RxPENDING00004/external_accounts"
+  },
+  "future_requirements": { "alternatives": [], "current_deadline": null, "currently_due": [], "disabled_reason": null, "errors": [], "eventually_due": [], "past_due": [], "pending_verification": [] },
+  "metadata": { "provider_id": "1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e43" },
+  "payouts_enabled": true,
+  "requirements": { "alternatives": [], "current_deadline": null, "currently_due": [], "disabled_reason": null, "errors": [], "eventually_due": [], "past_due": [], "pending_verification": ["individual.verification.document"] },
+  "settings": { "payouts": { "schedule": { "delay_days": 2, "interval": "daily" }, "statement_descriptor": null } },
+  "tos_acceptance": { "date": 1757000100, "ip": "203.0.113.13" },
+  "type": "express"
+}

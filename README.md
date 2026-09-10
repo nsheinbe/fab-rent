@@ -111,6 +111,7 @@ unless every live secret is present, and refused again in CI (hermetic first).
 | Database | `DATABASE_URL` | Required. Plain Postgres or the Supabase connection string. |
 | Supabase | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Enables Supabase Auth (Google / Apple / email OTP), Storage buckets and Realtime chat. Unset → demo mode. |
 | Stripe | `PAYMENTS_PROVIDER=stripe`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_CURRENCY` | Card Element + SetupIntent at checkout; PaymentIntents with manual capture for holds; webhook at `/api/webhooks/stripe`. |
+| Stripe Connect (payouts) | `PAYOUTS_PROVIDER=stripe`, `STRIPE_CONNECT_WEBHOOK_SECRET`, `STRIPE_CONNECT_COUNTRY`, `PAYOUTS_LIVE_MODE` | Express connected accounts with Stripe-hosted onboarding; transfers of cleared ledger entries on each provider's schedule; the same webhook URL, verified with the connected-accounts secret. Defaults to the mock: simulated onboarding at `/provider/earnings/onboarding`, recorded transfers. Needs `PAYMENTS_PROVIDER=stripe`; live keys refused without `PAYOUTS_LIVE_MODE=1`, which CI never accepts. |
 | Email | `NOTIFICATIONS_PROVIDER=resend`, `RESEND_API_KEY`, `NOTIFICATIONS_FROM`, `NOTIFICATIONS_REPLY_TO`, `APP_URL` | Transactional email through Resend (sign-in codes + lifecycle messages). Unset → console adapter, which logs and records but never sends. Fail-closed: missing secrets name themselves; CI refuses Resend unless `HERMETIC=0`. |
 | Jobs | `CRON_SECRET` | Protects `/api/cron/[job]` (bearer token or `?secret=`). |
 | Demo clock | `DEMO_NOW` | Market-local ISO time; unset for real time. |
@@ -140,6 +141,12 @@ Actions, `curl`) works as long as it sends `CRON_SECRET`. Every job is idempoten
 3. Stripe: enable `PAYMENTS_PROVIDER=stripe`, add the webhook endpoint for `payment_intent.canceled`,
    `payment_intent.payment_failed` and `charge.dispute.created`, and set `STRIPE_CURRENCY` (MRD is
    fictional; test mode runs in a real currency).
+4. Payouts (Phase 7): on a platform account with Connect enabled, set `PAYOUTS_PROVIDER=stripe` and add a
+   second webhook endpoint at the same URL that listens to connected-account events (`account.updated`,
+   `account.external_account.*`, `payout.failed`, plus `transfer.reversed` on the platform), with its
+   signing secret in `STRIPE_CONNECT_WEBHOOK_SECRET`. Schedule `/api/cron/payouts` (vercel.json does) and
+   run `pnpm payouts:smoke` once in test mode to see a transfer land on a connected account. Live keys
+   need `PAYOUTS_LIVE_MODE=1` set deliberately.
 
 ## Security notes
 

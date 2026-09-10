@@ -11,7 +11,9 @@ import { pctOf } from "@/lib/pricing/money";
 import { lateFee, quoteExtension } from "@/lib/pricing";
 import { runListingChecks, routeForReview, listingQuality, type ListingForChecks } from "@/lib/listing-checks";
 import { formatDateTime, formatMoney } from "@/lib/format";
-import { notifyClaimRaised, notifyExtensionDecided } from "@/lib/notifications/events";
+import { appUrl, notifyClaimRaised, notifyExtensionDecided } from "@/lib/notifications/events";
+import { isPayoutError, payoutProviderName } from "@/lib/payouts";
+import { completeMockOnboarding as completeMockOnboardingFor, startPayoutOnboarding as startOnboardingFor, syncConnectAccount } from "@/lib/payouts/connect";
 import type { ActionResult } from "@/app/(renter)/actions";
 
 const providerActor = (a: { userId: string | null; profile: { name: string } | null }): TransitionActor => ({ role: "provider", id: a.userId, name: a.profile?.name ?? "Provider" });
@@ -57,9 +59,6 @@ const settingsSchema = z.object({
   response_minutes: z.coerce.number().int().min(1).max(1440).optional(),
   hours_label: z.string().trim().max(80).optional(),
   delivery_vans: z.array(z.string().trim().min(1).max(30)).max(10).optional(),
-  payout_schedule: z.string().optional(),
-  payout_account_masked: z.string().trim().max(60).optional(),
-  tax_id: z.string().trim().max(40).optional(),
 });
 export async function updateProviderSettings(providerId: string, input: z.input<typeof settingsSchema>): Promise<ActionResult> {
   const actor = await requireProvider(providerId);
@@ -73,11 +72,81 @@ export async function updateProviderSettings(providerId: string, input: z.input<
     await trx.updateTable("providers").set({
       ...(d.name ? { name: d.name } : {}), ...(d.about != null ? { about: d.about } : {}), ...(d.address != null ? { address: d.address } : {}), ...(d.neighbourhood != null ? { neighbourhood: d.neighbourhood } : {}),
       ...(d.response_minutes ? { response_minutes: d.response_minutes } : {}), ...(d.hours_label ? { opening_hours: JSON.stringify(hours) } : {}), ...(d.delivery_vans ? { delivery_vans: JSON.stringify(d.delivery_vans) } : {}),
-      ...(d.payout_schedule ? { payout_schedule: d.payout_schedule } : {}), ...(d.payout_account_masked ? { payout_account_masked: d.payout_account_masked, payout_account_verified: true } : {}), ...(d.tax_id ? { tax_id: d.tax_id } : {}),
     }).where("id", "=", providerId).execute();
   });
   revalidatePath("/provider/settings");
   revalidatePath("/provider/earnings");
+  return { ok: true, data: undefined };
+}
+
+/* ------------------------------------------------------------ payout account (Phase 7) */
+
+function payoutPaths() {
+  revalidatePath("/provider/earnings");
+  revalidatePath("/provider/settings");
+  revalidatePath("/admin/payouts");
+}
+
+/**
+ * Starts (or resumes) hosted onboarding for the provider's payout account: the connected account is
+ * created on first use, and the caller navigates to the URL. With Stripe that is Stripe's own
+ * onboarding (bank details and identity never touch fab.rent); with the mock it is the demo page.
+ */
+export async function startPayoutOnboarding(providerId: string): Promise<ActionResult<{ url: string }>> {
+  const actor = await requireProvider(providerId);
+  if (actor.provider.role !== "owner") return { ok: false, error: "Only the owner can set up payouts" };
+  const base = appUrl();
+  try {
+    const link = await withActor((trx) => startOnboardingFor(trx, providerId, { return_url: `${base}/provider/earnings?onboarding=return`, refresh_url: `${base}/provider/earnings?onboarding=refresh` }));
+    payoutPaths();
+    return { ok: true, data: { url: link.url } };
+  } catch (e) {
+    return { ok: false, error: isPayoutError(e) ? e.message : "Couldn't start payout onboarding" };
+  }
+}
+
+/** Re-reads the account's real state from the payout provider (the "Refresh" button, and the return from onboarding). */
+export async function refreshPayoutAccount(providerId: string): Promise<ActionResult<{ status: string; reason: string | null }>> {
+  await requireProvider(providerId);
+  try {
+    const r = await withActor((trx) => syncConnectAccount(trx, providerId));
+    payoutPaths();
+    if (!r) return { ok: false, error: "No payout account yet — set up payouts first" };
+    return { ok: true, data: { status: r.derived.status, reason: r.derived.reason } };
+  } catch (e) {
+    return { ok: false, error: isPayoutError(e) ? e.message : "Couldn't refresh the payout account" };
+  }
+}
+
+const mockOnboardingSchema = z.object({
+  scenario: z.enum(["verified", "tax_id_missing", "bank_failed", "pending"]),
+  last4: z.string().regex(/^\d{4}$/).optional(),
+  bank_name: z.string().trim().min(1).max(40).optional(),
+});
+
+/** Demo only: the simulated hosted onboarding reports its outcome; the account is then synced exactly as a Stripe return would be. */
+export async function completeMockOnboarding(providerId: string, input: z.input<typeof mockOnboardingSchema>): Promise<ActionResult<{ status: string; reason: string | null }>> {
+  const actor = await requireProvider(providerId);
+  if (actor.provider.role !== "owner") return { ok: false, error: "Only the owner can set up payouts" };
+  if (payoutProviderName() !== "mock") return { ok: false, error: "Onboarding is hosted by Stripe when PAYOUTS_PROVIDER=stripe" };
+  const parsed = mockOnboardingSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Choose an outcome and a four-digit account ending" };
+  try {
+    const derived = await withActor((trx) => completeMockOnboardingFor(trx, providerId, parsed.data.scenario, { last4: parsed.data.last4, bank_name: parsed.data.bank_name }));
+    payoutPaths();
+    return { ok: true, data: { status: derived.status, reason: derived.reason } };
+  } catch (e) {
+    return { ok: false, error: isPayoutError(e) ? e.message : "Couldn't complete onboarding" };
+  }
+}
+
+export async function updatePayoutSchedule(providerId: string, schedule: string): Promise<ActionResult> {
+  const actor = await requireProvider(providerId);
+  if (actor.provider.role !== "owner") return { ok: false, error: "Only the owner can change the payout schedule" };
+  const config = await getLiveConfig();
+  if (!config.payouts.schedules.includes(schedule)) return { ok: false, error: "Choose one of the marketplace's payout schedules" };
+  await withActor((trx) => trx.updateTable("providers").set({ payout_schedule: schedule }).where("id", "=", providerId).execute());
+  payoutPaths();
   return { ok: true, data: undefined };
 }
 

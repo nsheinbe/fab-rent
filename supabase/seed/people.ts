@@ -1,5 +1,6 @@
 import { NEIGHBOURHOODS } from "@/lib/settings/defaults";
 import { Sql, day, textArray, uid, ymd, raw, json, type SqlValue } from "./lib";
+import { mockAccountRef, mockScenarioState } from "@/lib/payouts/mock";
 
 export interface Person {
   key: string;
@@ -75,6 +76,8 @@ export interface ProviderSeed {
   payout_account_masked: string | null;
   payout_account_verified: boolean;
   payouts_paused?: string;
+  /** Phase 7: the provider's connected payout account at the (mock) payout provider; absent = never onboarded */
+  connect?: { scenario: "verified" | "tax_id_missing" | "bank_failed" | "pending"; bank: string; last4: string; paused_since?: Date };
   vans?: string[];
   rating: number | null;
   rating_count: number;
@@ -91,12 +94,12 @@ const HOURS_WEEKDAYS_9_6: Record<string, [string, string] | null> = { mon: ["09:
 const HOURS_7DAYS: Record<string, [string, string] | null> = { mon: ["08:00", "20:00"], tue: ["08:00", "20:00"], wed: ["08:00", "20:00"], thu: ["08:00", "20:00"], fri: ["08:00", "20:00"], sat: ["08:00", "20:00"], sun: ["09:00", "17:00"] };
 
 export const PROVIDERS: ProviderSeed[] = [
-  { key: "northlands", kind: "business", name: "Northlands Tool & Hire", slug: "northlands-tool-hire", owner: "dana", staff: ["sam", "lena"], address: "42 Foundry Rd, Northlands", neighbourhood: "Northlands", hours_label: "Mon–Sat 07:00–18:00", opening_hours: HOURS_MON_SAT, verified: true, insurance_valid_until: ymd(2027, 3, 31), tax_id: "PM-88-241-903", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 8812", payout_account_verified: true, vans: ["Van 1"], rating: 4.9, rating_count: 612, response_minutes: 10, on_time_pct: 98, completed: 4120, years: 8, about: "Family-run tool and equipment hire in Northlands since 2018. Every unit is serial-tracked and serviced on a logged schedule." },
-  { key: "millbrook", kind: "business", name: "Millbrook Event Co.", slug: "millbrook-event-co", owner: "millbrook-owner", address: "7 Orchard Lane, Millbrook", neighbourhood: "Millbrook", hours_label: "Mon–Sat 09:00–18:00", opening_hours: HOURS_WEEKDAYS_9_6, verified: true, insurance_valid_until: ymd(2027, 1, 15), tax_id: "PM-73-118-220", tax_id_verified: true, payout_account_masked: "Harbour Credit •••• 2201", payout_account_verified: true, vans: ["Van A", "Van B"], rating: 4.8, rating_count: 233, response_minutes: 25, on_time_pct: 96, completed: 1180, years: 6, about: "Tents, seating, lighting and dance floors for weddings and festivals across Port Maren. Delivery and setup included on most items." },
-  { key: "vesper", kind: "business", name: "Vesper Camera Collective", slug: "vesper-camera-collective", owner: "theo", address: "12 Lantern St, Vesper Hill", neighbourhood: "Vesper Hill", hours_label: "Tue–Sat 10:00–19:00", opening_hours: { mon: null, tue: ["10:00", "19:00"], wed: ["10:00", "19:00"], thu: ["10:00", "19:00"], fri: ["10:00", "19:00"], sat: ["10:00", "19:00"], sun: null }, verified: true, insurance_valid_until: ymd(2027, 5, 1), tax_id: "PM-91-402-118", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 4470", payout_account_verified: true, rating: 5.0, rating_count: 148, response_minutes: 40, on_time_pct: 99, completed: 720, years: 4, about: "A co-op of working camera operators renting out the kit we use ourselves. Everything is sensor-checked between rentals." },
-  { key: "docks", kind: "business", name: "Docks Equipment Depot", slug: "docks-equipment-depot", owner: "ruth", address: "Unit 3, Pier Rd, The Docks", neighbourhood: "The Docks", hours_label: "Mon–Fri 06:30–17:00", opening_hours: { mon: ["06:30", "17:00"], tue: ["06:30", "17:00"], wed: ["06:30", "17:00"], thu: ["06:30", "17:00"], fri: ["06:30", "17:00"], sat: ["08:00", "12:00"], sun: null }, verified: true, insurance_valid_until: ymd(2026, 12, 31), tax_id: "PM-64-009-771", tax_id_verified: true, payout_account_masked: "Dockside Mutual •••• 0193", payout_account_verified: false, payouts_paused: "Bank account verification failed · retry 2", vans: ["Flatbed 1"], rating: 4.7, rating_count: 41, response_minutes: 55, on_time_pct: 93, completed: 860, years: 7, about: "Heavy and site equipment for contractors. Flatbed delivery across the harbour." },
-  { key: "saltway", kind: "business", name: "Saltway Marine & Outdoor", slug: "saltway-marine-outdoor", owner: "femi", address: "Saltway Boathouse, 3 Quay Walk, Saltway", neighbourhood: "Saltway", hours_label: "Daily 08:00–20:00", opening_hours: HOURS_7DAYS, verified: true, insurance_valid_until: ymd(2026, 10, 12), tax_id: "PM-55-317-004", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 6650", payout_account_verified: true, rating: 4.7, rating_count: 190, response_minutes: 30, on_time_pct: 95, completed: 612, years: 4, about: "Kayaks, boards, camping and garden kit from the Saltway boathouse." },
-  { key: "tomas", kind: "individual", name: "Tomas Reinholt", slug: "tomas-reinholt", owner: "tomas", address: "88 Ridgeway Ave, Ridgeway", neighbourhood: "Ridgeway", hours_label: "Evenings & weekends", opening_hours: { mon: ["17:00", "20:00"], tue: ["17:00", "20:00"], wed: ["17:00", "20:00"], thu: ["17:00", "20:00"], fri: ["17:00", "20:00"], sat: ["09:00", "18:00"], sun: ["09:00", "18:00"] }, verified: true, insurance_valid_until: null, tax_id: null, tax_id_verified: false, payout_account_masked: "Maren Bank •••• 3318", payout_account_verified: true, payouts_paused: "Tax ID missing · payout paused since 1 Sep", rating: 4.9, rating_count: 58, response_minutes: 45, on_time_pct: 97, completed: 214, years: 3, about: "Woodworker renting out my own well-kept tools when I'm not using them." },
+  { key: "northlands", kind: "business", name: "Northlands Tool & Hire", slug: "northlands-tool-hire", owner: "dana", staff: ["sam", "lena"], address: "42 Foundry Rd, Northlands", neighbourhood: "Northlands", hours_label: "Mon–Sat 07:00–18:00", opening_hours: HOURS_MON_SAT, verified: true, insurance_valid_until: ymd(2027, 3, 31), tax_id: "PM-88-241-903", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 8812", payout_account_verified: true, connect: { scenario: "verified", bank: "Maren Bank", last4: "8812" }, vans: ["Van 1"], rating: 4.9, rating_count: 612, response_minutes: 10, on_time_pct: 98, completed: 4120, years: 8, about: "Family-run tool and equipment hire in Northlands since 2018. Every unit is serial-tracked and serviced on a logged schedule." },
+  { key: "millbrook", kind: "business", name: "Millbrook Event Co.", slug: "millbrook-event-co", owner: "millbrook-owner", address: "7 Orchard Lane, Millbrook", neighbourhood: "Millbrook", hours_label: "Mon–Sat 09:00–18:00", opening_hours: HOURS_WEEKDAYS_9_6, verified: true, insurance_valid_until: ymd(2027, 1, 15), tax_id: "PM-73-118-220", tax_id_verified: true, payout_account_masked: "Harbour Credit •••• 2201", payout_account_verified: true, connect: { scenario: "verified", bank: "Harbour Credit", last4: "2201" }, vans: ["Van A", "Van B"], rating: 4.8, rating_count: 233, response_minutes: 25, on_time_pct: 96, completed: 1180, years: 6, about: "Tents, seating, lighting and dance floors for weddings and festivals across Port Maren. Delivery and setup included on most items." },
+  { key: "vesper", kind: "business", name: "Vesper Camera Collective", slug: "vesper-camera-collective", owner: "theo", address: "12 Lantern St, Vesper Hill", neighbourhood: "Vesper Hill", hours_label: "Tue–Sat 10:00–19:00", opening_hours: { mon: null, tue: ["10:00", "19:00"], wed: ["10:00", "19:00"], thu: ["10:00", "19:00"], fri: ["10:00", "19:00"], sat: ["10:00", "19:00"], sun: null }, verified: true, insurance_valid_until: ymd(2027, 5, 1), tax_id: "PM-91-402-118", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 4470", payout_account_verified: true, connect: { scenario: "verified", bank: "Maren Bank", last4: "4470" }, rating: 5.0, rating_count: 148, response_minutes: 40, on_time_pct: 99, completed: 720, years: 4, about: "A co-op of working camera operators renting out the kit we use ourselves. Everything is sensor-checked between rentals." },
+  { key: "docks", kind: "business", name: "Docks Equipment Depot", slug: "docks-equipment-depot", owner: "ruth", address: "Unit 3, Pier Rd, The Docks", neighbourhood: "The Docks", hours_label: "Mon–Fri 06:30–17:00", opening_hours: { mon: ["06:30", "17:00"], tue: ["06:30", "17:00"], wed: ["06:30", "17:00"], thu: ["06:30", "17:00"], fri: ["06:30", "17:00"], sat: ["08:00", "12:00"], sun: null }, verified: true, insurance_valid_until: ymd(2026, 12, 31), tax_id: "PM-64-009-771", tax_id_verified: true, payout_account_masked: "Dockside Mutual •••• 0193", payout_account_verified: false, payouts_paused: "Bank account verification failed · payout paused since 1 Sep", connect: { scenario: "bank_failed", bank: "Dockside Mutual", last4: "0193", paused_since: day(-4, "09:00") }, vans: ["Flatbed 1"], rating: 4.7, rating_count: 41, response_minutes: 55, on_time_pct: 93, completed: 860, years: 7, about: "Heavy and site equipment for contractors. Flatbed delivery across the harbour." },
+  { key: "saltway", kind: "business", name: "Saltway Marine & Outdoor", slug: "saltway-marine-outdoor", owner: "femi", address: "Saltway Boathouse, 3 Quay Walk, Saltway", neighbourhood: "Saltway", hours_label: "Daily 08:00–20:00", opening_hours: HOURS_7DAYS, verified: true, insurance_valid_until: ymd(2026, 10, 12), tax_id: "PM-55-317-004", tax_id_verified: true, payout_account_masked: "Maren Bank •••• 6650", payout_account_verified: true, connect: { scenario: "verified", bank: "Maren Bank", last4: "6650" }, rating: 4.7, rating_count: 190, response_minutes: 30, on_time_pct: 95, completed: 612, years: 4, about: "Kayaks, boards, camping and garden kit from the Saltway boathouse." },
+  { key: "tomas", kind: "individual", name: "Tomas Reinholt", slug: "tomas-reinholt", owner: "tomas", address: "88 Ridgeway Ave, Ridgeway", neighbourhood: "Ridgeway", hours_label: "Evenings & weekends", opening_hours: { mon: ["17:00", "20:00"], tue: ["17:00", "20:00"], wed: ["17:00", "20:00"], thu: ["17:00", "20:00"], fri: ["17:00", "20:00"], sat: ["09:00", "18:00"], sun: ["09:00", "18:00"] }, verified: true, insurance_valid_until: null, tax_id: null, tax_id_verified: false, payout_account_masked: "Maren Bank •••• 3318", payout_account_verified: true, payouts_paused: "Tax ID missing · payout paused since 1 Sep", connect: { scenario: "tax_id_missing", bank: "Maren Bank", last4: "3318", paused_since: day(-4, "09:00") }, rating: 4.9, rating_count: 58, response_minutes: 45, on_time_pct: 97, completed: 214, years: 3, about: "Woodworker renting out my own well-kept tools when I'm not using them." },
   { key: "kestrel", kind: "business", name: "Kestrel Party Hire", slug: "kestrel-party-hire", owner: "bea", address: "5 Meadow Rd, Kestrel Park", neighbourhood: "Kestrel Park", hours_label: "Mon–Sun 09:00–18:00", opening_hours: HOURS_7DAYS, verified: false, insurance_valid_until: null, tax_id: null, tax_id_verified: false, payout_account_masked: null, payout_account_verified: false, rating: null, rating_count: 0, response_minutes: null, on_time_pct: null, completed: 0, years: 0, about: "New to fab.rent — inflatables and party kit for Kestrel Park families.", accepting: true },
   { key: "leo", kind: "individual", name: "Leo Stamm", slug: "leo-stamm", owner: "leo", address: "19 Harbour View, Old Harbour", neighbourhood: "Old Harbour", hours_label: "By arrangement", opening_hours: {}, verified: false, insurance_valid_until: null, tax_id: null, tax_id_verified: false, payout_account_masked: null, payout_account_verified: false, rating: null, rating_count: 0, response_minutes: null, on_time_pct: null, completed: 0, years: 0 },
 ];
@@ -195,8 +198,10 @@ export function emitPeople(sql: Sql) {
       payout_account_masked: p.payout_account_masked,
       payout_account_verified: p.payout_account_verified,
       payout_schedule: "weekly_tue",
-      payouts_paused: !!p.payouts_paused,
-      payouts_paused_reason: p.payouts_paused ?? null,
+      // a provider that never connected a payout account cannot be paid (Phase 7 derives the same from no connect row)
+      payouts_paused: !!p.payouts_paused || !p.connect,
+      payouts_paused_reason: p.payouts_paused ?? (p.connect ? null : "Payout account not connected"),
+      payouts_paused_since: p.connect?.paused_since ?? null,
       delivery_vans: json(p.vans ?? []),
       rating: p.rating,
       rating_count: p.rating_count,
@@ -214,6 +219,23 @@ export function emitPeople(sql: Sql) {
       { id: uid(`member:${p.key}:${p.owner}`), provider_id: PR(p.key), profile_id: P(p.owner), role: "owner" },
       ...(p.staff ?? []).map((s) => ({ id: uid(`member:${p.key}:${s}`), provider_id: PR(p.key), profile_id: P(s), role: "staff" })),
     ]),
+  );
+
+  // Phase 7: the mirror of each provider's connected payout account, as the mock payout provider reports it.
+  // Flags above (tax ID / bank / paused) are what derivePayoutState() yields for these states.
+  sql.comment("connect accounts");
+  sql.insert(
+    "public.connect_accounts",
+    PROVIDERS.filter((p) => p.connect).map((p) => {
+      const c = p.connect!;
+      const state = mockScenarioState(mockAccountRef(PR(p.key)), c.scenario, { business_type: p.kind === "business" ? "company" : "individual", last4: c.last4, bank_name: c.bank });
+      return {
+        provider_id: PR(p.key), payout_provider: "mock", account_ref: state.account_ref, livemode: false, business_type: state.business_type,
+        details_submitted: state.details_submitted, charges_enabled: state.charges_enabled, payouts_enabled: state.payouts_enabled,
+        requirements: json(state.requirements), disabled_reason: state.disabled_reason, external_account: state.external_account ? json(state.external_account) : null,
+        onboarding_started_at: day(-365 * Math.max(p.years, 0) - 39), onboarding_completed_at: day(-365 * Math.max(p.years, 0) - 38), last_synced_at: day(-1, "09:00"),
+      };
+    }),
   );
 
   sql.comment("staff");

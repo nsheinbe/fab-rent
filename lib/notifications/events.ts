@@ -6,7 +6,9 @@ import type { BookingEvent } from "@/lib/booking-state/machine";
 import type { BookingStatus } from "@/lib/booking-state/status";
 import { dedupeKey, planTransition, type TemplateKey } from "./catalogue";
 import { enqueueNotification, sendAndRecord, type EnqueueResult } from "./outbox";
-import { renderBooking, renderListingReviewed, renderOtp, renderPayoutReminder, renderPayoutSent, type BookingContext } from "./templates";
+import { renderBooking, renderListingReviewed, renderOtp, renderPayoutAccountAction, renderPayoutAccountVerified, renderPayoutReminder, renderPayoutSent, type BookingContext } from "./templates";
+import { createHash } from "node:crypto";
+import { payoutScheduleLabel } from "@/lib/time";
 
 /**
  * The hooks the product calls. Each loads what the copy needs as the system (RLS hides the other
@@ -189,6 +191,46 @@ export async function notifyPayoutReminder(trx: Trx, payoutId: string, at: Date 
   if (!p) return null;
   const r = renderPayoutReminder(p.ctx);
   return enqueueNotification(trx, { template: "payout_reminder", party: "provider", dedupe_key: dedupeKey("payout_reminder", `${payoutId}:${at.toISOString().slice(0, 10)}`, "provider"), recipient: p.recipient, subject: r.subject, text: r.text, payload: { payout_id: payoutId, amount_cents: p.ctx.amount_cents } });
+}
+
+async function loadProviderOwner(trx: Trx, providerId: string) {
+  return asSystem(trx, (sys) =>
+    sys
+      .selectFrom("providers as pv")
+      .innerJoin("profiles as o", "o.id", "pv.owner_profile_id")
+      .select(["pv.id", "pv.name", "pv.payout_schedule", "pv.payout_account_masked", "o.id as owner_id", "o.name as owner_name", "o.email as owner_email", "o.notification_prefs as owner_prefs"])
+      .where("pv.id", "=", providerId)
+      .executeTakeFirst(),
+  );
+}
+
+export interface PayoutAccountNotice {
+  account_ref: string;
+  account_masked: string | null;
+  /** human labels of what is still outstanding */
+  outstanding: string[];
+  reason: string | null;
+  detail: string | null;
+  deadline: Date | null;
+}
+
+/** The connected payout account became verified (Phase 7): once per account. */
+export async function notifyPayoutAccountVerified(trx: Trx, providerId: string, notice: PayoutAccountNotice): Promise<EnqueueResult | null> {
+  const p = await loadProviderOwner(trx, providerId);
+  if (!p) return null;
+  const config = await getLiveConfig();
+  const r = renderPayoutAccountVerified({ provider_name: p.name, account_masked: notice.account_masked ?? p.payout_account_masked, schedule_label: payoutScheduleLabel(p.payout_schedule), outstanding: [], reason: null, detail: null, deadline: null, tz: config.market.timezone, app_url: appUrl() });
+  return enqueueNotification(trx, { template: "payout_account_verified", party: "provider", dedupe_key: dedupeKey("payout_account_verified", `${providerId}:${notice.account_ref}`, "provider"), recipient: { profile_id: p.owner_id, email: p.owner_email, name: p.owner_name, prefs: p.owner_prefs }, subject: r.subject, text: r.text, payload: { provider_id: providerId, account_ref: notice.account_ref } });
+}
+
+/** The payout provider needs something from the provider (Phase 7): once per distinct set of outstanding requirements. */
+export async function notifyPayoutAccountAction(trx: Trx, providerId: string, notice: PayoutAccountNotice): Promise<EnqueueResult | null> {
+  const p = await loadProviderOwner(trx, providerId);
+  if (!p) return null;
+  const config = await getLiveConfig();
+  const r = renderPayoutAccountAction({ provider_name: p.name, account_masked: notice.account_masked ?? p.payout_account_masked, schedule_label: payoutScheduleLabel(p.payout_schedule), outstanding: notice.outstanding, reason: notice.reason, detail: notice.detail, deadline: notice.deadline, tz: config.market.timezone, app_url: appUrl() });
+  const fingerprint = createHash("sha1").update([...notice.outstanding].sort().join("|") + "|" + (notice.reason ?? "")).digest("hex").slice(0, 12);
+  return enqueueNotification(trx, { template: "payout_account_action", party: "provider", dedupe_key: dedupeKey("payout_account_action", `${providerId}:${notice.account_ref}:${fingerprint}`, "provider"), recipient: { profile_id: p.owner_id, email: p.owner_email, name: p.owner_name, prefs: p.owner_prefs }, subject: r.subject, text: r.text, payload: { provider_id: providerId, account_ref: notice.account_ref, outstanding: notice.outstanding, reason: notice.reason } });
 }
 
 /** Listing review decided (A03): "provider notified with reason". */
