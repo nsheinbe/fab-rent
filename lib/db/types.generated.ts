@@ -268,6 +268,26 @@ export interface ConditionRecords {
   updated_at: Generated<Timestamp>;
 }
 
+export interface ConnectAccounts {
+  account_ref: string;
+  business_type: string | null;
+  charges_enabled: Generated<boolean>;
+  created_at: Generated<Timestamp>;
+  details_submitted: Generated<boolean>;
+  disabled_reason: string | null;
+  external_account: Json | null;
+  last_event_id: string | null;
+  last_synced_at: Timestamp | null;
+  livemode: Generated<boolean>;
+  onboarding_completed_at: Timestamp | null;
+  onboarding_started_at: Timestamp | null;
+  payout_provider: string;
+  payouts_enabled: Generated<boolean>;
+  provider_id: string;
+  requirements: Generated<Json>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface Conversations {
   booking_id: string | null;
   created_at: Generated<Timestamp>;
@@ -556,11 +576,17 @@ export interface Payouts {
   exception: string | null;
   exception_detail: string | null;
   id: Generated<string>;
+  last_attempt_at: Timestamp | null;
+  livemode: Generated<boolean>;
   paid_at: Timestamp | null;
+  payout_provider: string | null;
   provider_id: string;
+  reconciled_at: Timestamp | null;
   rental_count: Generated<number>;
   scheduled_for: Timestamp;
   status: Generated<PayoutStatus>;
+  transfer_attempts: Generated<number>;
+  transfer_ref: string | null;
   updated_at: Generated<Timestamp>;
 }
 
@@ -621,6 +647,7 @@ export interface Providers {
   payout_schedule: Generated<string>;
   payouts_paused: Generated<boolean>;
   payouts_paused_reason: string | null;
+  payouts_paused_since: Timestamp | null;
   rating: Numeric | null;
   rating_count: Generated<number>;
   response_minutes: number | null;
@@ -731,6 +758,7 @@ export interface DB {
   categories: Categories;
   claims: Claims;
   condition_records: ConditionRecords;
+  connect_accounts: ConnectAccounts;
   conversations: Conversations;
   disputes: Disputes;
   extension_requests: ExtensionRequests;

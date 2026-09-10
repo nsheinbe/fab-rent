@@ -133,3 +133,30 @@ export async function seedOpenClaim(request: APIRequestContext, ref: string, amo
 export function ledgerIdentity(row: { gross_cents: number; commission_cents: number; adjustment_cents: number; net_cents: number }) {
   return row.net_cents === row.gross_cents + row.commission_cents + row.adjustment_cents;
 }
+
+/* ------------------------------------------------------------------ Phase 7 · payouts */
+
+export type PayoutCall = { op: string; ok: boolean; account_ref?: string; amount_cents?: number; ref?: string; idempotency_key?: string; transfer_group?: string; replayed?: boolean; code?: string; error?: string };
+
+export type ProviderInspect = {
+  provider: { id: string; slug: string; name: string; payout_schedule: string; payouts_paused: boolean; payouts_paused_reason: string | null; payouts_paused_since: string | null; payout_account_masked: string | null; payout_account_verified: boolean; tax_id_verified: boolean } | null;
+  connect: { account_ref: string; payout_provider: string; livemode: boolean; details_submitted: boolean; payouts_enabled: boolean; requirements: { currently_due: string[]; past_due: string[]; pending_verification: string[]; errors: Array<{ code: string; reason: string; requirement: string }> }; external_account: { bank_name: string | null; last4: string | null; status: string | null } | null } | null;
+  payouts: Array<{ id: string; status: string; amount_cents: number; rental_count: number; scheduled_for: string; paid_at: string | null; exception: string | null; exception_detail: string | null; transfer_ref: string | null; transfer_attempts: number; livemode: boolean; payout_provider: string | null }>;
+  ledger: Array<{ id: string; type: string; status: string; gross_cents: number; commission_cents: number; adjustment_cents: number; net_cents: number; payout_id: string | null; ref: string | null; description: string | null; provider_payout_cents: number | null }>;
+  deliveries: Delivery[];
+  account_balance: { available_cents: number; pending_cents: number } | null;
+  payout_calls: PayoutCall[];
+};
+
+/** A provider's payout account mirror, payout rows, ledger, owner's deliveries and the mock's recorded Connect calls. */
+export async function inspectProvider(request: APIRequestContext, slug: string): Promise<ProviderInspect> {
+  const res = await request.get(`/api/e2e/inspect?provider=${encodeURIComponent(slug)}`);
+  expect(res.status(), "inspect API must be enabled (E2E_INSPECT=1, mock payments + payouts)").toBe(200);
+  return (await res.json()) as ProviderInspect;
+}
+
+/** The mock payout provider refuses its next transfer (exception + retry path). */
+export async function failNextPayout(request: APIRequestContext, reason: string, code?: string) {
+  const res = await request.post("/api/e2e/inspect", { data: { action: "payouts_fail_next", reason, code } });
+  expect(res.status()).toBe(200);
+}

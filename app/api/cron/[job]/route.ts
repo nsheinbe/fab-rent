@@ -4,7 +4,7 @@ import { now } from "@/lib/time";
 import { runJob, type JobName } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
-const JOBS: JobName[] = ["returns", "holds", "claims", "reviews", "hold-expiry", "reminders", "notifications", "all"];
+const JOBS: JobName[] = ["returns", "holds", "claims", "reviews", "hold-expiry", "reminders", "notifications", "payouts", "all"];
 
 /**
  * Scheduled jobs (Vercel cron / Supabase pg_cron / curl). Protected by CRON_SECRET as a bearer token
@@ -16,6 +16,7 @@ const JOBS: JobName[] = ["returns", "holds", "claims", "reviews", "hold-expiry",
  *   /api/cron/hold-expiry mark lapsed card authorisations
  *   /api/cron/reminders   handoff reminders the day before a pickup or delivery
  *   /api/cron/notifications re-dispatch notification deliveries that failed or were abandoned
+ *   /api/cron/payouts     schedule cleared earnings, transfer what is due, reconcile recent transfers (Phase 7)
  */
 export async function GET(req: Request, { params }: { params: Promise<{ job: string }> }) {
   const { job } = await params;

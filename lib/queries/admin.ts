@@ -285,7 +285,15 @@ export async function adminBookings(trx: Trx, q?: string) {
 }
 
 export async function adminPayouts(trx: Trx) {
-  return trx.selectFrom("payouts as po").innerJoin("providers as p", "p.id", "po.provider_id").select(["po.id", "po.status", "po.amount_cents", "po.rental_count", "po.scheduled_for", "po.paid_at", "po.exception", "po.exception_detail", "po.account_masked", "p.name as provider", "p.id as provider_id", "p.payouts_paused", "p.tax_id_verified", "p.payout_account_verified"]).orderBy(sql`case po.status when 'failed' then 0 when 'paused' then 1 when 'scheduled' then 2 else 3 end`).orderBy("po.scheduled_for", "desc").limit(120).execute();
+  return trx
+    .selectFrom("payouts as po")
+    .innerJoin("providers as p", "p.id", "po.provider_id")
+    .leftJoin("connect_accounts as c", "c.provider_id", "p.id")
+    .select(["po.id", "po.status", "po.amount_cents", "po.rental_count", "po.scheduled_for", "po.paid_at", "po.exception", "po.exception_detail", "po.account_masked", "po.transfer_ref", "po.transfer_attempts", "po.payout_provider", "po.livemode", "p.name as provider", "p.id as provider_id", "p.slug as provider_slug", "p.payouts_paused", "p.payouts_paused_reason", "p.tax_id_verified", "p.payout_account_verified", "c.account_ref", "c.details_submitted", "c.payouts_enabled"])
+    .orderBy(sql`case po.status when 'failed' then 0 when 'paused' then 1 when 'scheduled' then 2 else 3 end`)
+    .orderBy("po.scheduled_for", "desc")
+    .limit(120)
+    .execute();
 }
 
 export async function adminReports(trx: Trx) {

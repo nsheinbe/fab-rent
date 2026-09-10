@@ -102,7 +102,7 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
         payload.released_cents = b.hold_cents;
       }
       Object.assign(patch, { completed_at: at, returned_at: b.returned_at ?? at });
-      await clearLedger(trx, b.id, at);
+      await clearLedger(trx, b.id, at, 0, config.market.timezone);
       break;
     }
     case "claim_accepted":
@@ -120,7 +120,7 @@ export async function transitionBooking(trx: Trx, bookingId: string, event: Book
       }
       Object.assign(payload, { captured_cents: capture, released_cents: b.hold_cents - capture });
       patch.completed_at = at;
-      await clearLedger(trx, b.id, at, capture);
+      await clearLedger(trx, b.id, at, capture, config.market.timezone);
       break;
     }
     case "claim_disputed": {
@@ -188,13 +188,37 @@ async function applyCancellationLedger(
 }
 
 /** Funds clear at return check-in: rental ledger entry → available (plus any captured claim, no commission). */
-async function clearLedger(trx: Trx, bookingId: string, at: Date, claimCents = 0) {
+async function clearLedger(trx: Trx, bookingId: string, at: Date, claimCents = 0, tz?: string) {
   // system-owned: providers/renters trigger this transition but may not touch the ledger themselves
-  return asSystem(trx, (sys) => clearLedgerAsSystem(sys, bookingId, at, claimCents));
+  return asSystem(trx, (sys) => clearLedgerAsSystem(sys, bookingId, at, claimCents, tz));
 }
 
-async function clearLedgerAsSystem(trx: Trx, bookingId: string, at: Date, claimCents = 0) {
-  const entry = await trx.selectFrom("ledger_entries").selectAll().where("booking_id", "=", bookingId).where("type", "=", "rental").executeTakeFirst();
+/**
+ * Checkout writes the provider's rental entry (pending) for every booking it creates; a booking that
+ * never went through checkout (seed data, imports) has none. Clearing must never silently skip such a
+ * booking — the entry is created here from the booking's own price snapshot, the same figures
+ * checkout would have written (rental + extras + delivery, commission on rental + extras).
+ */
+async function ensureRentalEntry(trx: Trx, bookingId: string, tz: string) {
+  const b = await trx
+    .selectFrom("bookings as b")
+    .innerJoin("listings as l", "l.id", "b.listing_id")
+    .innerJoin("profiles as r", "r.id", "b.renter_id")
+    .select(["b.id", "b.provider_id", "b.price_snapshot", "b.start_at", "b.fulfillment", "l.title", "r.name as renter_name"])
+    .where("b.id", "=", bookingId)
+    .executeTakeFirst();
+  const provider = (b?.price_snapshot as { provider?: { gross_cents?: number; commission_cents?: number; payout_cents?: number } } | null)?.provider;
+  if (!b || !provider || typeof provider.gross_cents !== "number" || typeof provider.commission_cents !== "number" || typeof provider.payout_cents !== "number") return undefined;
+  return trx
+    .insertInto("ledger_entries")
+    .values({ provider_id: b.provider_id, booking_id: b.id, entry_date: sql`(${b.start_at.toISOString()}::timestamptz at time zone ${tz})::date`, type: "rental", description: `${b.title} · ${b.renter_name}${b.fulfillment === "delivery" ? " · delivery" : ""}`, gross_cents: provider.gross_cents, commission_cents: -provider.commission_cents, net_cents: provider.payout_cents, status: "pending" })
+    .returningAll()
+    .executeTakeFirst();
+}
+
+async function clearLedgerAsSystem(trx: Trx, bookingId: string, at: Date, claimCents = 0, tz?: string) {
+  let entry = await trx.selectFrom("ledger_entries").selectAll().where("booking_id", "=", bookingId).where("type", "=", "rental").executeTakeFirst();
+  if (!entry && tz) entry = await ensureRentalEntry(trx, bookingId, tz);
   if (!entry) return;
   const adjustment = claimCents > 0 ? claimCents : entry.adjustment_cents;
   await trx

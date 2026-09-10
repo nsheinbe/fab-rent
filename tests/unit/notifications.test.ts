@@ -88,7 +88,7 @@ describe("catalogue", () => {
 });
 
 describe("templates", () => {
-  const bookingTemplates = NOTIFICATION_TEMPLATES.filter((k) => !["otp_code", "payout_sent", "payout_reminder", "listing_reviewed"].includes(k)) as Array<Parameters<typeof renderBooking>[0]>;
+  const bookingTemplates = NOTIFICATION_TEMPLATES.filter((k) => !["otp_code", "payout_sent", "payout_reminder", "payout_account_verified", "payout_account_action", "listing_reviewed"].includes(k)) as Array<Parameters<typeof renderBooking>[0]>;
 
   it("renders every booking template for both parties without throwing", () => {
     const payload = { refunded_cents: 12000, kept_rental_cents: 8700, credit_cents: 2000, keep_pct: 50, captured_cents: 14400, released_cents: 10600, decision: "uphold_partial", extra_days: 1, new_end_at: "2026-09-14T21:00:00Z", amount_cents: 5321, event: "claim_accepted" };

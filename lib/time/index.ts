@@ -105,3 +105,11 @@ export function nextPayoutDate(after: Date, schedule: string, tz = marketTz): Da
   }
   return marketLocal(`${at.getFullYear()}-${String(at.getMonth() + 1).padStart(2, "0")}-${String(at.getDate()).padStart(2, "0")}T09:00:00`, tz);
 }
+
+/** "Weekly · Tuesdays", "Daily", "Monthly · 1st" for a `payout_schedule` value. */
+export function payoutScheduleLabel(schedule: string): string {
+  if (schedule === "daily") return "Daily";
+  if (schedule.startsWith("monthly")) return "Monthly · 1st";
+  const day = ({ mon: "Mondays", tue: "Tuesdays", wed: "Wednesdays", thu: "Thursdays", fri: "Fridays", sat: "Saturdays", sun: "Sundays" } as Record<string, string>)[schedule.split("_")[1] ?? "tue"] ?? "Tuesdays";
+  return `Weekly · ${day}`;
+}

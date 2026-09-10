@@ -35,6 +35,7 @@ jobs:
       CRON_SECRET: ci-cron-secret
       DEMO_NOW: "2026-09-05T10:00:00"
       PAYMENTS_PROVIDER: mock
+      PAYOUTS_PROVIDER: mock
       NOTIFICATIONS_PROVIDER: console
       APP_URL: http://localhost:3100
       E2E_INSPECT: "1"
@@ -52,7 +53,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Fail closed without live Stripe or email secrets
+      - name: Fail closed without live Stripe, Connect or email secrets
         run: pnpm ci:hermetic
 
       - name: Typecheck

@@ -27,6 +27,8 @@ export const NOTIFICATION_TEMPLATES = [
   "extension_decided",
   "payout_sent",
   "payout_reminder",
+  "payout_account_verified",
+  "payout_account_action",
   "listing_reviewed",
 ] as const;
 
@@ -68,6 +70,8 @@ export const notificationCatalogue: Record<TemplateKey, TemplateMeta> = {
   extension_decided: { label: "Extension decided", category: "money", optional: false, audiences: ["renter"], description: "Approved (and charged) or declined." },
   payout_sent: { label: "Payout sent", category: "money", optional: false, audiences: ["provider"], description: "When a payout goes to your account." },
   payout_reminder: { label: "Payout paused", category: "money", optional: false, audiences: ["provider"], description: "What is blocking a payout." },
+  payout_account_verified: { label: "Payout account verified", category: "money", optional: false, audiences: ["provider"], description: "When your payout account is verified and cleared earnings can go out." },
+  payout_account_action: { label: "Payout account needs attention", category: "money", optional: false, audiences: ["provider"], description: "When the payout provider needs more details or a bank account failed verification." },
   listing_reviewed: { label: "Listing reviewed", category: "listing", optional: false, audiences: ["provider"], description: "Approved, changes requested or rejected, with the reason." },
 };
 

@@ -132,17 +132,18 @@ test("a provider who opted out of reminders still receives money and dispute mes
   expect(by(decided.deliveries, "dispute_decided", "renter")[0]).toMatchObject({ status: "sent", recipient_email: RIDGEWAY });
   consoleOnly(decided.deliveries);
 
-  // payout sent (ops marks the scheduled Northlands payout paid) → money message, sent despite the opt-outs
+  // payout sent: the run schedules Millbrook's newly cleared rental, ops pays it now (a real transfer at the mock) → money message
+  await runJob(request, "payouts");
   await page.context().clearCookies();
   await signInDemo(page, INES, "/admin/payouts");
   await page.waitForURL(/\/admin\/payouts/);
-  await page.getByTestId("mark-payout-paid").first().click();
-  await expect(page.getByText("Marked paid · provider notified").first()).toBeVisible();
-  const danaMail = await deliveries(request, { email: DANA });
-  const payout = by(danaMail, "payout_sent");
+  await page.locator('[data-testid="payout-row"][data-provider="millbrook-event-co"][data-status="scheduled"]').first().getByTestId("pay-payout-now").click();
+  await expect(page.getByText("Paid · provider notified").first()).toBeVisible();
+  const millbrookMail = await deliveries(request, { email: MILLBROOK_OWNER });
+  const payout = by(millbrookMail, "payout_sent");
   expect(payout).toHaveLength(1);
   expect(payout[0]).toMatchObject({ status: "sent", provider: "console", party: "provider" });
-  expect(payout[0]!.subject).toMatch(/^Payout sent · \$[\d,]+\.\d{2} to Maren Bank •••• 8812$/);
+  expect(payout[0]!.subject).toMatch(/^Payout sent · \$[\d,]+\.\d{2} to Harbour Credit •••• 2201$/);
 });
 
 test("handoff reminders go out once per booking per party, whatever the job cadence", async ({ request }, testInfo) => {

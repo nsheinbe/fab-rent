@@ -2,28 +2,42 @@ import { NextResponse } from "next/server";
 import { runAsSystem, sql } from "@/lib/db";
 import { getLiveConfig } from "@/lib/settings/live";
 import { recordBookingEvent } from "@/lib/booking-state/transition";
+import { payoutProviderName } from "@/lib/payouts/hermetic";
+import { normaliseStripeAccount } from "@/lib/payouts/stripe";
+import { syncConnectAccountByRef } from "@/lib/payouts/connect";
+import { reversePayout } from "@/lib/payouts/run";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Stripe webhook: hold authorisations that lapse, failed off-session charges and chargebacks.
- * Signature-verified with STRIPE_WEBHOOK_SECRET; idempotent by design (each handler is a state check).
+ * Stripe webhook: hold authorisations that lapse, failed off-session charges, chargebacks, and
+ * (Phase 7) Connect account state, transfer reversals and failed bank payouts on connected accounts.
+ * Signature-verified with STRIPE_WEBHOOK_SECRET (platform events) or STRIPE_CONNECT_WEBHOOK_SECRET
+ * (the "connected accounts" endpoint); idempotent by design (each handler is a state check, and
+ * account events carry their event id so a redelivery is inert).
  */
 export async function POST(req: Request) {
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  const secrets = [process.env.STRIPE_WEBHOOK_SECRET, process.env.STRIPE_CONNECT_WEBHOOK_SECRET].filter((s): s is string => !!s);
   const key = process.env.STRIPE_SECRET_KEY;
-  if (!secret || !key) return NextResponse.json({ error: "Stripe webhooks not configured" }, { status: 400 });
+  if (!secrets.length || !key) return NextResponse.json({ error: "Stripe webhooks not configured" }, { status: 400 });
   const sig = req.headers.get("stripe-signature");
   if (!sig) return NextResponse.json({ error: "Missing signature" }, { status: 400 });
   const { default: Stripe } = await import("stripe");
   const stripe = new Stripe(key);
-  let event: import("stripe").Stripe.Event;
-  try {
-    event = stripe.webhooks.constructEvent(await req.text(), sig, secret);
-  } catch (e) {
-    return NextResponse.json({ error: `Bad signature: ${(e as Error).message}` }, { status: 400 });
+  const raw = await req.text();
+  let event: import("stripe").Stripe.Event | null = null;
+  let lastError = "";
+  for (const secret of secrets) {
+    try {
+      event = stripe.webhooks.constructEvent(raw, sig, secret);
+      break;
+    } catch (e) {
+      lastError = (e as Error).message;
+    }
   }
+  if (!event) return NextResponse.json({ error: `Bad signature: ${lastError}` }, { status: 400 });
   const system = { role: "system" as const, id: null, name: "fab.rent" };
+  const connectEnabled = payoutProviderName() === "stripe";
   switch (event.type) {
     case "payment_intent.canceled": {
       // an authorisation that lapsed (or was cancelled outside our release path) → hold expired
@@ -59,6 +73,49 @@ export async function POST(req: Request) {
         await trx.insertInto("internal_notes").values({ target_type: "profile", target_id: b.renter_id, author_id: null, author_name: "System", body: `Chargeback received (${dispute.id}) on ${b.ref}. ${config.verification.auto_suspend_on_chargeback ? "Auto-suspended pending review." : "Flagged for review."}` }).execute();
         await trx.insertInto("admin_actions").values({ actor_id: null, actor_name: "System", action: `${config.verification.auto_suspend_on_chargeback ? "suspended" : "flagged"} user #${p.public_id} after chargeback`, target_type: "profile", target_id: b.renter_id, target_label: `#${p.public_id}` }).execute();
         await recordBookingEvent(trx, b.id, "chargeback_received", system, { stripe: dispute.id, amount_cents: dispute.amount });
+      });
+      break;
+    }
+    case "account.updated": {
+      // the connected account's requirement state changed → mirror it, derive the pause flags, tell the provider
+      if (!connectEnabled) break;
+      const acct = event.data.object;
+      const eventId = event.id;
+      await runAsSystem((trx) => syncConnectAccountByRef(trx, acct.id, { state: normaliseStripeAccount(acct, event.livemode), event_id: eventId }));
+      break;
+    }
+    case "account.external_account.created":
+    case "account.external_account.updated":
+    case "account.external_account.deleted": {
+      // bank details changed on a connected account → re-read the account (the event object is the bank account, not the account)
+      const account = event.account;
+      if (!connectEnabled || !account) break;
+      const eventId = event.id;
+      await runAsSystem((trx) => syncConnectAccountByRef(trx, account, { event_id: eventId }));
+      break;
+    }
+    case "transfer.reversed": {
+      // money came back to the platform → the payout lands in the exception state and its entries clear again
+      const tr = event.data.object;
+      await runAsSystem(async (trx) => {
+        const p = await trx.selectFrom("payouts").select("id").where("transfer_ref", "=", tr.id).executeTakeFirst();
+        if (p) await reversePayout(trx, p.id, `reversed at Stripe (${tr.amount_reversed} of ${tr.amount} ${tr.currency})`);
+      });
+      break;
+    }
+    case "payout.failed": {
+      // a connected account's own bank payout failed: the transfer already succeeded, Stripe returned the funds to the
+      // connected balance and will flag the bank account on the next account.updated; note it for ops meanwhile
+      const account = event.account;
+      if (!connectEnabled || !account) break;
+      const po = event.data.object;
+      const eventId = event.id;
+      await runAsSystem(async (trx) => {
+        const row = await trx.selectFrom("connect_accounts as c").innerJoin("providers as p", "p.id", "c.provider_id").select(["c.provider_id", "p.name"]).where("c.account_ref", "=", account).executeTakeFirst();
+        if (!row) return;
+        await trx.insertInto("internal_notes").values({ target_type: "provider", target_id: row.provider_id, author_id: null, author_name: "System", body: `Bank payout ${po.id} failed at the payout provider${po.failure_message ? `: ${po.failure_message}` : ""}. The funds are back on the connected account; the bank details need attention before the next payout.` }).execute();
+        await trx.insertInto("admin_actions").values({ actor_id: null, actor_name: "System", action: `bank payout failed for ${row.name}`, target_type: "provider", target_id: row.provider_id, target_label: row.name }).execute();
+        await syncConnectAccountByRef(trx, account, { event_id: eventId });
       });
       break;
     }

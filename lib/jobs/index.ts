@@ -6,6 +6,7 @@ import { runHoldReleaseJob, runReturnJobs, recordBookingEvent } from "@/lib/book
 import { getPaymentProvider } from "@/lib/payments";
 import { notifyHandoffReminder } from "@/lib/notifications/events";
 import { runNotificationRetryJob } from "@/lib/notifications/outbox";
+import { runPayoutJob } from "@/lib/payouts/run";
 
 export { runHoldReleaseJob, runReturnJobs };
 
@@ -80,7 +81,7 @@ export async function runHandoffReminderJob(trx: Trx, at: Date = now()): Promise
   return reminded;
 }
 
-export type JobName = "returns" | "holds" | "claims" | "reviews" | "hold-expiry" | "reminders" | "notifications" | "all";
+export type JobName = "returns" | "holds" | "claims" | "reviews" | "hold-expiry" | "reminders" | "notifications" | "payouts" | "all";
 
 export async function runJob(trx: Trx, job: JobName, at: Date = now()): Promise<Record<string, number>> {
   switch (job) {
@@ -100,9 +101,14 @@ export async function runJob(trx: Trx, job: JobName, at: Date = now()): Promise<
       return { reminded: await runHandoffReminderJob(trx, at) };
     case "notifications":
       return { retried: (await runNotificationRetryJob(trx, at)).retried };
+    case "payouts": {
+      const r = await runPayoutJob(trx, at);
+      return { scheduled: r.scheduled, paid: r.paid, paused: r.paused, failed: r.failed, skipped: r.skipped, reconciled: r.reconciled, reversed: r.reversed };
+    }
     case "all": {
       const r = await runReturnJobs(trx, at);
-      return { return_due: r.return_due, overdue: r.overdue, released: await runHoldReleaseJob(trx, at), escalated: await runClaimEscalationJob(trx, at), published: await runReviewPublishJob(trx, at), expired: await runHoldExpiryJob(trx, at), reminded: await runHandoffReminderJob(trx, at), retried: (await runNotificationRetryJob(trx, at)).retried };
+      const p = await runPayoutJob(trx, at);
+      return { return_due: r.return_due, overdue: r.overdue, released: await runHoldReleaseJob(trx, at), escalated: await runClaimEscalationJob(trx, at), published: await runReviewPublishJob(trx, at), expired: await runHoldExpiryJob(trx, at), reminded: await runHandoffReminderJob(trx, at), retried: (await runNotificationRetryJob(trx, at)).retried, payouts_paid: p.paid, payouts_paused: p.paused, payouts_failed: p.failed };
     }
   }
 }
