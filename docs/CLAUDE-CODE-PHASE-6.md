@@ -2,7 +2,7 @@
 
 Repo: `nsheinbe/fab-rent` · Branch: `claude/phase-6-notifications` · Start from latest `main`.
 
-Design source of truth: `./design/*.dc.html` (already on main — same bundle as the zip Nick attached). Ignore `design/frames/` and `design/support.js` (viewer scaffolding). Working notes: `CLAUDE.md`. Plan: `BUILD-PLAN.md` + status: `PROGRESS.md`.
+Design source of truth: `./design/*.dc.html`. The exact zip Nick provided is also on this branch at `design/fab-rent-designs.zip` — if anything looks off vs the HTML in `design/`, unpack the zip and treat it as authoritative. Ignore `design/frames/` and `design/support.js` (viewer scaffolding). BUILD-PLAN is `BUILD-PLAN.md` on the repo (the zip is design-only; it does not contain a separate build-plan file). Working notes: `CLAUDE.md`. Plan: `BUILD-PLAN.md` + status: `PROGRESS.md`.
 
 ## Mission
 
