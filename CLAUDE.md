@@ -1,3 +1,5 @@
+> Product direction update, September 9, 2026: the user has restored Fab.Rent’s original American manufacturing and sourcing concept. The manufacturing UI in `components/manufacturing/` and `MANUFACTURING-REDESIGN.md` supersedes the rental design for the homepage. The notes below describe the retained legacy rental system; do not use them to turn the new homepage back into rentals.
+
 # fab.rent — working notes for Claude
 
 Premium rental marketplace for equipment, tools and event supplies (demo market: Port Maren, currency Maren dollar `$` / MRD). Built from the finished design in `./design/*.dc.html` — those files are the source of truth for layout, copy and demo data. `design/frames/` and `design/support.js` are viewer scaffolding; ignore them.

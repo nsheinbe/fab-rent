@@ -1,0 +1,13 @@
+import { createRequire } from 'node:module';
+import { mkdir, readFile, writeFile, cp } from 'node:fs/promises';
+const require = createRequire(import.meta.url);
+const { build } = createRequire(require.resolve('tsx'))('esbuild');
+const postcss = createRequire(require.resolve('@tailwindcss/postcss'))('postcss');
+const tailwind = require('@tailwindcss/postcss');
+await mkdir('dist', { recursive: true });
+await build({ entryPoints: ['preview/main.tsx'], bundle: true, minify: true, outfile: 'dist/app.js', format: 'esm', platform: 'browser', loader: { '.css': 'empty' }, define: { 'process.env.NODE_ENV': '"production"' } });
+const styles = await postcss([tailwind()]).process(await readFile('app/globals.css', 'utf8'), { from: 'app/globals.css' });
+await writeFile('dist/app.css', styles.css + '\n' + await readFile('components/manufacturing/marketplace.css', 'utf8'));
+await cp('public', 'dist', { recursive: true });
+await writeFile('dist/index.html', '<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#294a38"><title>Fab.Rent — American manufacturing</title><meta name="description" content="Find American manufacturers for custom parts, finished products, and production runs. Explore capabilities and prepare a quote request."><link rel="icon" href="/icon.svg"><link rel="stylesheet" href="/app.css"></head><body><a href="#main" class="skip-link">Skip to content</a><div id="root"></div><script type="module" src="/app.js"></script></body></html>');
+console.log('Manufacturing preview built in dist.');
